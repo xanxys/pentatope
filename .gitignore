@@ -1,0 +1,6 @@
+pentatope
+pentatope_test
+*.o
+.sconsign.dblite
+*.sublime-workspace
+*.sublime-project
