@@ -54,15 +54,17 @@ protected:
 
 class LambertBRDF : public BSDF {
 public:
-    // TODO: unit of refl?
+    // refl: [0, 1] value.
     LambertBRDF(const MicroGeometry& geom, const Spectrum& refl) : BSDF(geom), refl(refl) {
+        refl_normalized = refl * (3 / (4 * pi));
     }
 
     Spectrum bsdf(const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const override {
-        return refl;
+        return refl_normalized;
     }
 private:
     Spectrum refl;
+    Spectrum refl_normalized;
 };
 
 
@@ -92,7 +94,11 @@ public:
 
 class UniformLambertMaterial : public Material {
 public:
+    // refl: [0, 1] value.
     UniformLambertMaterial(const Spectrum& refl) : refl(refl) {
+        if(refl.minCoeff() < 0 || refl.maxCoeff() > 1) {
+            throw physics_error("Don't create non energy conserving lambertian BSDF.");
+        }
     }
 
     const BSDF* getBSDF(const MicroGeometry& geom) override {
