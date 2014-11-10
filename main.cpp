@@ -229,23 +229,24 @@ public:
 
     // return 8 bit BGR image.
     cv::Mat render(const Scene& scene, Sampler& sampler) const {
-        const int samples_per_pixel = 100;
+        const int samples_per_pixel = 1000;
         // TODO: use Spectrum array.
         cv::Mat film(height, width, CV_32FC3);
         film = 0.0f;
         const float dx = std::tan(fov_x / 2);
         const float dy = std::tan(fov_y / 2);
-        const Eigen::Vector4f org = pose.asAffine().translation();
+        const Eigen::Vector4f org_w = pose.asAffine().translation();
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
-                Eigen::Vector4f dir(
+                Eigen::Vector4f dir_c(
                     ((x * 1.0f / width) - 0.5) * dx,
                     ((y * 1.0f / height) - 0.5) * dy,
                     0,
                     1);
-                dir.normalize();
+                dir_c.normalize();
+                Eigen::Vector4f dir_w = pose.asAffine().rotation() * dir_c;
 
-                Ray ray(org, dir);
+                Ray ray(org_w, dir_w);
                 for(int i = 0; i < samples_per_pixel; i++) {
                     film.at<cv::Vec3f>(y, x) += toCvRgb(scene.trace(ray, sampler, 5));
                 }
@@ -357,8 +358,8 @@ int main(int argc, char** argv) {
     assert(cam_to_world.determinant() > 0);
 
     Camera2 camera(
-        Pose(Eigen::Matrix4f::Identity(), Eigen::Vector4f(0, 0, -0.5, 1)),
-        100, 100, 1.0, 1.0);
+        Pose(cam_to_world, Eigen::Vector4f(0, 0, -0.95, 1)),
+        100, 100, 2.57, 2.57);
 
     Sampler sampler;
     cv::Mat result = camera.render(*scene, sampler);
