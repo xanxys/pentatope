@@ -11,41 +11,25 @@
 #include <geometry.h>
 #include <space.h>
 
+// Currently RGB.
+// TODO: use properly defined values.
 using Spectrum = Eigen::Vector3f;
 
 using namespace pentatope;
+
+Spectrum fromRgb(float r, float g, float b) {
+    return Spectrum(r, g, b);
+}
+
+cv::Vec3f toCvRgb(const Spectrum& spec) {
+    return cv::Vec3f(spec(2), spec(1), spec(0));
+}
 
 
 // BSDF at particular point + emission.
 class BSDF {
 public:
 };
-
-
-class Scene {
-public:
-    boost::optional<std::pair<bool, MicroGeometry>>
-            intersect(const Ray& ray) const {
-        float t_min = std::numeric_limits<float>::max();
-        boost::optional<std::pair<bool, MicroGeometry>> isect_nearest;
-
-        for(const auto& object : objects) {
-            auto isect = object.first.intersect(ray);
-            if(!isect) {
-                continue;
-            }
-            const float t = ray.at(isect->pos());
-            if(t < t_min) {
-                isect_nearest = std::make_pair(object.second, *isect);
-                t_min = t;
-            }
-        }
-        return isect_nearest;
-    }
-public:
-    std::vector<std::pair<Sphere, bool>> objects;
-};
-
 
 class Sampler {
 public:
@@ -80,6 +64,66 @@ public:
 
 
 
+// Complete collection of visually relevant things.
+class Scene {
+public:
+    Scene() {
+        background_radiance = fromRgb(0, 0, 0.1);
+    }
+
+    boost::optional<std::pair<bool, MicroGeometry>>
+            intersect(const Ray& ray) const {
+        float t_min = std::numeric_limits<float>::max();
+        boost::optional<std::pair<bool, MicroGeometry>> isect_nearest;
+
+        for(const auto& object : objects) {
+            auto isect = object.first.intersect(ray);
+            if(!isect) {
+                continue;
+            }
+            const float t = ray.at(isect->pos());
+            if(t < t_min) {
+                isect_nearest = std::make_pair(object.second, *isect);
+                t_min = t;
+            }
+        }
+        return isect_nearest;
+    }
+
+    // Samples radiance L(ray.origin, -ray.direction) by
+    // raytracing.
+    Spectrum trace(const Ray& ray, Sampler& sampler) const {
+        const Spectrum light_radiance = fromRgb(50, 50, 50);
+
+        const auto isect = intersect(ray);
+        if(isect) {
+            const bool o_type = isect->first;
+            const MicroGeometry mg = isect->second;
+            if(o_type) {
+                // light
+                return light_radiance;
+            } else {
+                // lambert
+                const float epsilon = 1e-6;
+                const float brdf = 0.1;  // TODO: calculate this
+                const auto dir = sampler.uniformHemisphere(mg.normal());
+                // avoid self-intersection by offseting origin.
+                Ray new_ray(mg.pos() + epsilon * dir, dir);
+                return brdf * mg.normal().dot(dir) * pi * pi * trace(new_ray, sampler);
+            }
+        } else {
+            return background_radiance;
+        }
+    }
+
+public:
+    std::vector<std::pair<Sphere, bool>> objects;
+    Spectrum background_radiance;
+};
+
+
+
+
 // A point camera that can record 2-d slice of 3-d incoming light.
 // (corresponds to line camera in 3-d space)
 // Points to W+ direction, and records light rays with Z=0.
@@ -94,7 +138,8 @@ public:
 
     // return 8 bit BGR image.
     cv::Mat render(const Scene& scene, Sampler& sampler) const {
-        const int samples_per_pixel = 100;
+        const int samples_per_pixel = 1000;
+        // TODO: use Spectrum array.
         cv::Mat film(height, width, CV_32FC3);
         film = 0.0f;
         const float dx = std::tan(fov_x / 2);
@@ -111,7 +156,7 @@ public:
 
                 Ray ray(org, dir);
                 for(int i = 0; i < samples_per_pixel; i++) {
-                    film.at<cv::Vec3f>(y, x) += trace(ray, scene, sampler);
+                    film.at<cv::Vec3f>(y, x) += toCvRgb(scene.trace(ray, sampler));
                 }
             }
         }
@@ -126,30 +171,6 @@ public:
             }
         }
         return image;
-    }
-
-    cv::Vec3f trace(const Ray& ray, const Scene& scene, Sampler& sampler) const {
-        const cv::Vec3f light_radiance(100, 100, 100);
-
-        const auto isect = scene.intersect(ray);
-        if(isect) {
-            const bool o_type = isect->first;
-            const MicroGeometry mg = isect->second;
-            if(o_type) {
-                // light
-                return light_radiance;
-            } else {
-                // lambert
-                const float epsilon = 1e-6;
-                const float brdf = 0.1;  // TODO: calculate this
-                const auto dir = sampler.uniformHemisphere(mg.normal());
-                // avoid self-intersection by offseting origin.
-                Ray new_ray(mg.pos() + epsilon * dir, dir);
-                return brdf * mg.normal().dot(dir) * pi * pi * trace(new_ray, scene, sampler);
-            }
-        } else {
-            return cv::Vec3f(0.3, 0, 0);
-        }
     }
 private:
     const Pose pose;

@@ -1,5 +1,9 @@
 // Defines several 4-d shapes, and collection of
 // useful surface properties for shading.
+// Omit hyper- prefix (e.g. hyperplane, hypersphere, ...),
+// since we don't care about wimpy 3-d space.
+//
+// Remeber, all surface is 3-d and all volume is 4-d.
 #pragma once
 
 #include <boost/optional.hpp>
@@ -38,10 +42,25 @@ public:
     Sphere(Eigen::Vector4f center, float radius);
 
     boost::optional<MicroGeometry>
-            intersect(const Ray& ray) const override;
+        intersect(const Ray& ray) const override;
 private:
     const Eigen::Vector4f center;
     const float radius;
+};
+
+
+// An infinite 4-d plane. Visible from both sides.
+class Plane : public Geometry {
+public:
+    // Create a Plane {p | p.dot(normal) == d}.
+    // normal must be a unit vector.
+    Plane(const Eigen::Vector4f& normal, float d);
+
+    boost::optional<MicroGeometry>
+        intersect(const Ray& ray) const override;
+private:
+    Eigen::Vector4f normal;
+    float d;
 };
 
 };

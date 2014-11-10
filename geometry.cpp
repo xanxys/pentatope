@@ -48,4 +48,26 @@ boost::optional<MicroGeometry>
     return MicroGeometry(p, (p - center).normalized());
 }
 
+
+Plane::Plane(const Eigen::Vector4f& normal, float d) :
+        normal(normal), d(d) {
+}
+
+boost::optional<MicroGeometry>
+        Plane::intersect(const Ray& ray) const {
+    const float perp_dir = normal.dot(ray.direction);
+    if(perp_dir == 0) {
+        return boost::none;
+    }
+    const float t = (d - normal.dot(ray.origin)) / perp_dir;
+    if(t <= 0) {
+        return boost::none;
+    }
+    // perp_dir > 0: negative side
+    // perp_dir < 0: positive side
+    return MicroGeometry(
+        ray.at(t),
+        (perp_dir > 0) ? static_cast<Eigen::Vector4f>(-normal) : normal);
+}
+
 };
