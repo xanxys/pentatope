@@ -1,5 +1,6 @@
 #include <limits>
 #include <random>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -77,7 +78,7 @@ public:
         boost::optional<std::pair<bool, MicroGeometry>> isect_nearest;
 
         for(const auto& object : objects) {
-            auto isect = object.first.intersect(ray);
+            auto isect = object.first->intersect(ray);
             if(!isect) {
                 continue;
             }
@@ -92,7 +93,12 @@ public:
 
     // Samples radiance L(ray.origin, -ray.direction) by
     // raytracing.
-    Spectrum trace(const Ray& ray, Sampler& sampler) const {
+    Spectrum trace(const Ray& ray, Sampler& sampler, int depth) const {
+        if(depth <= 0) {
+            LOG_EVERY_N(INFO, 1000000) << "trace: depth threshold reached";
+            return Spectrum::Zero();
+        }
+
         const Spectrum light_radiance = fromRgb(50, 50, 50);
 
         const auto isect = intersect(ray);
@@ -109,7 +115,7 @@ public:
                 const auto dir = sampler.uniformHemisphere(mg.normal());
                 // avoid self-intersection by offseting origin.
                 Ray new_ray(mg.pos() + epsilon * dir, dir);
-                return brdf * mg.normal().dot(dir) * pi * pi * trace(new_ray, sampler);
+                return brdf * mg.normal().dot(dir) * pi * pi * trace(new_ray, sampler, depth - 1);
             }
         } else {
             return background_radiance;
@@ -117,7 +123,7 @@ public:
     }
 
 public:
-    std::vector<std::pair<Sphere, bool>> objects;
+    std::vector<std::pair<std::unique_ptr<Geometry>, bool>> objects;
     Spectrum background_radiance;
 };
 
@@ -138,7 +144,7 @@ public:
 
     // return 8 bit BGR image.
     cv::Mat render(const Scene& scene, Sampler& sampler) const {
-        const int samples_per_pixel = 1000;
+        const int samples_per_pixel = 100;
         // TODO: use Spectrum array.
         cv::Mat film(height, width, CV_32FC3);
         film = 0.0f;
@@ -156,7 +162,7 @@ public:
 
                 Ray ray(org, dir);
                 for(int i = 0; i < samples_per_pixel; i++) {
-                    film.at<cv::Vec3f>(y, x) += toCvRgb(scene.trace(ray, sampler));
+                    film.at<cv::Vec3f>(y, x) += toCvRgb(scene.trace(ray, sampler, 5));
                 }
             }
         }
@@ -186,14 +192,45 @@ int main(int argc, char** argv) {
     google::InstallFailureSignalHandler();
 
     Scene scene;
+    // Create [-1,1]^3 * [0,2] box
+    // floor(w-)
     scene.objects.emplace_back(
-        Sphere(Eigen::Vector4f(0, 0, 0, 5), 1),
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 0)),
+        false);
+    // ceiling(w+)
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 2)),
+        false);
+    // walls
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 1, 0, 0), 0)),
         false);  // object
-    scene.objects.emplace_back(
-        Sphere(Eigen::Vector4f(3, 0, 0, 0), 0.5),
-        true);  // light
 
-    Camera2 camera(Pose(), 100, 100, 1.0, 1.0);
+    // object inside room
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 0.2), 0.2)),
+        false);
+    // light at center of ceiling
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 2), 0.5)),
+        true);
+
+    // rotation:
+    // World <- Camera
+    // X         X(horz)
+    // W         Y(up)
+    // Y         Z(ignored)
+    // Z         W(forward)
+    Eigen::Matrix4f cam_to_world;
+    cam_to_world.col(0) = Eigen::Vector4f(1, 0, 0, 0);
+    cam_to_world.col(1) = Eigen::Vector4f(0, 0, 0, 1);
+    cam_to_world.col(2) = Eigen::Vector4f(0, 1, 0, 0);
+    cam_to_world.col(3) = Eigen::Vector4f(0, 0, 1, 0);
+    assert(cam_to_world.determinant() > 0);
+
+    Camera2 camera(
+        Pose(Eigen::Matrix4f::Identity(), Eigen::Vector4f(0, 0, -0.5, 1)),
+        100, 100, 1.0, 1.0);
 
     Sampler sampler;
     cv::Mat result = camera.render(scene, sampler);

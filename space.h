@@ -31,6 +31,9 @@ class Pose {
 public:
     // identity.
     Pose();
+    // from rotation and translation. Rp + t
+    Pose(const Eigen::Matrix4f& rot, const Eigen::Vector4f& trans);
+
     Eigen::Transform<float, 4, Eigen::Affine> asAffine() const;
 private:
     Eigen::Transform<float, 4, Eigen::Affine> pose;
