@@ -8,7 +8,7 @@ else:
 
 env = Environment(
     CXX = compiler,
-    CXXFLAGS = '-std=c++11 -Wno-deprecated -Wno-attributes',
+    CXXFLAGS = '-std=c++11 -Wall -Wextra',
     CCFLAGS = ['-O3', '-g'],
     CPPPATH = [
     '/usr/include/eigen3',
