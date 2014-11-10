@@ -235,18 +235,19 @@ public:
 
     // return 8 bit BGR image.
     cv::Mat render(const Scene& scene, Sampler& sampler) const {
-        const int samples_per_pixel = 1000;
+        const int samples_per_pixel = 100;
         // TODO: use Spectrum array.
         cv::Mat film(height, width, CV_32FC3);
         film = 0.0f;
         const float dx = std::tan(fov_x / 2);
         const float dy = std::tan(fov_y / 2);
         const Eigen::Vector4f org_w = pose.asAffine().translation();
+        std::uniform_real_distribution<float> px_var(-0.5, 0.5);
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
                 Eigen::Vector4f dir_c(
-                    ((x * 1.0f / width) - 0.5) * dx,
-                    ((y * 1.0f / height) - 0.5) * dy,
+                    (((x + px_var(sampler.gen)) * 1.0f / width) - 0.5) * dx,
+                    (((y + px_var(sampler.gen)) * 1.0f / height) - 0.5) * dy,
                     0,
                     1);
                 dir_c.normalize();
@@ -261,6 +262,7 @@ public:
         film /= samples_per_pixel;
 
         // tonemap.
+        const float disp_gamma = 2.2;
         float max_v = 0;
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
@@ -271,7 +273,11 @@ public:
         cv::Mat image(height, width, CV_8UC3);
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
-                const cv::Vec3b color = film.at<cv::Vec3f>(y, x) / max_v * 255;
+                cv::Vec3f color = film.at<cv::Vec3f>(y, x) / max_v;
+                for(int channel = 0; channel < 3; channel++) {
+                    color[channel] = std::pow(color[channel], 1 / disp_gamma);
+                }
+                color *= 255;
                 image.at<cv::Vec3b>(y, x) = color;
             }
         }
@@ -352,20 +358,20 @@ int main(int argc, char** argv) {
 
     // rotation:
     // World <- Camera
-    // X         X(horz)
-    // W         Y(up)
-    // Y         Z(ignored)
-    // Z         W(forward)
+    // X+         X+(horz)
+    // W+         Y-(up)
+    // Z+         Z+(ignored)
+    // Y+         W+(forward)
     Eigen::Matrix4f cam_to_world;
     cam_to_world.col(0) = Eigen::Vector4f(1, 0, 0, 0);
-    cam_to_world.col(1) = Eigen::Vector4f(0, 0, 0, 1);
-    cam_to_world.col(2) = Eigen::Vector4f(0, 1, 0, 0);
-    cam_to_world.col(3) = Eigen::Vector4f(0, 0, 1, 0);
+    cam_to_world.col(1) = Eigen::Vector4f(0, 0, 0, -1);
+    cam_to_world.col(2) = Eigen::Vector4f(0, 0, 1, 0);
+    cam_to_world.col(3) = Eigen::Vector4f(0, 1, 0, 0);
     assert(cam_to_world.determinant() > 0);
 
     Camera2 camera(
-        Pose(cam_to_world, Eigen::Vector4f(0, 0, -0.95, 1)),
-        100, 100, 2.57, 2.57);
+        Pose(cam_to_world, Eigen::Vector4f(0, -0.95, 0, 1)),
+        200, 200, 2.57, 2.57);
 
     Sampler sampler;
     cv::Mat result = camera.render(*scene, sampler);
