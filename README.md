@@ -9,3 +9,7 @@ Rather, this is a natural extension of geometric optics
 
 Implementation details, especially class hierarchy is designed under
 heavy influence of [pbrt](http://www.pbrt.org/).
+
+
+## References
+* [Mathematical proof etc. on google drive](https://docs.google.com/document/d/1lfWarQdW_cZsIxPnigJCLeeWBzgZ6UGsgGNOq_5b1J8/edit?usp=sharing) (commentable, non-editable)
