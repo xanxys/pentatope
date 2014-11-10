@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <limits>
 #include <random>
 #include <memory>
@@ -253,10 +254,17 @@ public:
         film /= samples_per_pixel;
 
         // tonemap.
+        float max_v = 0;
+        for(int y = 0; y < height; y++) {
+            for(int x = 0; x < width; x++) {
+                const auto v = film.at<cv::Vec3f>(y, x);
+                max_v = std::max({max_v, v[0], v[1], v[2]});
+            }
+        }
         cv::Mat image(height, width, CV_8UC3);
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
-                const cv::Vec3b color = film.at<cv::Vec3f>(y, x) * 255;
+                const cv::Vec3b color = film.at<cv::Vec3f>(y, x) / max_v * 255;
                 image.at<cv::Vec3b>(y, x) = color;
             }
         }
