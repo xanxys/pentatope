@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <boost/optional.hpp>
 #include <Eigen/Dense>
 #include <glog/logging.h>
 #include <opencv2/opencv.hpp>
@@ -22,6 +23,8 @@ public:
 // Use this to represent (relative) angle to avoid
 // confusion over radian vs degree.
 using Radianf = float;
+
+using Spectrum = Eigen::Vector3f;
 
 // pose in 4-d space. (4 translational DoF + 6 rotational DoF)
 // represented by local to parent transform.
@@ -48,21 +51,54 @@ public:
     Eigen::Vector4f at(float t) const {
         return origin + direction * t;
     }
+
+    float at(const Eigen::Vector4f& pos) const {
+        return (pos - origin).dot(direction);
+    }
 public:
     const Eigen::Vector4f origin;
     const Eigen::Vector4f direction;
 };
 
 
+// An infinitesimal part of Geometry. (i.e. a point on hypersurface)
+// mainly used to represent surface near intersection points.
+class MicroGeometry {
+public:
+    MicroGeometry(const Eigen::Vector4f& pos, const Eigen::Vector4f& normal) :
+            _pos(pos), _normal(normal) {
+    }
 
-class Sphere {
+    Eigen::Vector4f pos() const {
+        return _pos;
+    }
+
+    Eigen::Vector4f normal() const {
+        return _normal;
+    }
+private:
+    // non-const to allow easy copying.
+    Eigen::Vector4f _pos;
+    Eigen::Vector4f _normal;
+};
+
+
+// Definition of shape in 4-d space.
+class Geometry {
+public:
+    virtual boost::optional<MicroGeometry> intersect(const Ray& ray) const;
+};
+
+
+
+class Sphere : public Geometry {
 public:
     Sphere(Eigen::Vector4f center, float radius) :
             center(center), radius(radius) {
     }
 
-    bool intersect(const Ray& ray,
-            float* t, Eigen::Vector4f* pos, Eigen::Vector4f* normal) const {
+    boost::optional<MicroGeometry>
+            intersect(const Ray& ray) const override {
         const Eigen::Vector4f delta = ray.origin - center;
         // turn into a quadratic equation at^2+bt+c=0
         const float a = std::pow(ray.direction.norm(), 2);
@@ -70,7 +106,7 @@ public:
         const float c = std::pow(delta.norm(), 2) - std::pow(radius, 2);
         const float det = b * b - 4 * a * c;
         if(det < 0) {
-            return false;
+            return boost::none;
         }
         const float t0 = (-b - std::sqrt(det)) / (2 * a);
         const float t1 = (-b + std::sqrt(det)) / (2 * a);
@@ -80,20 +116,11 @@ public:
         } else if(t1 > 0) {
             t_isect = t1;
         } else {
-            return false;
+            return boost::none;
         }
         // store intersection
         const Eigen::Vector4f p = ray.at(t_isect);
-        if(t) {
-            *t = t_isect;
-        }
-        if(pos) {
-            *pos = p;
-        }
-        if(normal) {
-            *normal = (p - center).normalized();
-        }
-        return true;
+        return MicroGeometry(p, (p - center).normalized());
     }
 private:
     const Eigen::Vector4f center;
@@ -101,35 +128,33 @@ private:
 };
 
 
+// BSDF at particular point + emission.
+class BSDF {
+public:
+};
+
+
 class Scene {
 public:
-    bool intersect(const Ray& ray,
-            bool* o_type, Eigen::Vector4f* o_pos, Eigen::Vector4f* o_normal) const {
+    boost::optional<std::pair<bool, MicroGeometry>>
+            intersect(const Ray& ray) const {
         float t_min = std::numeric_limits<float>::max();
-        bool isect = false;
+        boost::optional<std::pair<bool, MicroGeometry>> isect_nearest;
 
         for(const auto& object : objects) {
-            float t;
-            Eigen::Vector4f pos;
-            Eigen::Vector4f normal;
-            if(object.first.intersect(ray, &t, &pos, &normal)) {
-                if(t < t_min) {
-                    isect = true;
-                    t_min = t;
-                    if(o_type) {
-                        *o_type = object.second;
-                    }
-                    if(o_pos) {
-                        *o_pos = pos;
-                    }
-                    if(o_normal) {
-                        *o_normal = normal;
-                    }
-                }
+            auto isect = object.first.intersect(ray);
+            if(!isect) {
+                continue;
+            }
+            const float t = ray.at(isect->pos());
+            if(t < t_min) {
+                isect_nearest = std::make_pair(object.second, *isect);
+                t_min = t;
             }
         }
-        return isect;
+        return isect_nearest;
     }
+public:
     std::vector<std::pair<Sphere, bool>> objects;
 };
 
@@ -181,7 +206,7 @@ public:
 
     // return 8 bit BGR image.
     cv::Mat render(const Scene& scene, Sampler& sampler) const {
-        const int samples_per_pixel = 1000;
+        const int samples_per_pixel = 100;
         cv::Mat film(height, width, CV_32FC3);
         film = 0.0f;
         const float dx = std::tan(fov_x / 2);
@@ -218,10 +243,10 @@ public:
     cv::Vec3f trace(const Ray& ray, const Scene& scene, Sampler& sampler) const {
         const cv::Vec3f light_radiance(100, 100, 100);
 
-        bool o_type;
-        Eigen::Vector4f pos;
-        Eigen::Vector4f normal;
-        if(scene.intersect(ray, &o_type, &pos, &normal)) {
+        const auto isect = scene.intersect(ray);
+        if(isect) {
+            const bool o_type = isect->first;
+            const MicroGeometry mg = isect->second;
             if(o_type) {
                 // light
                 return light_radiance;
@@ -229,22 +254,21 @@ public:
                 // lambert
                 const float epsilon = 1e-6;
                 const float brdf = 0.1;  // TODO: calculate this
-                const auto dir = sampler.uniformHemisphere(normal);
+                const auto dir = sampler.uniformHemisphere(mg.normal());
                 // avoid self-intersection by offseting origin.
-                Ray new_ray(pos + epsilon * dir, dir);
-                
-                return brdf * normal.dot(dir) * pi * pi * trace(new_ray, scene, sampler);
+                Ray new_ray(mg.pos() + epsilon * dir, dir);
+                return brdf * mg.normal().dot(dir) * pi * pi * trace(new_ray, scene, sampler);
             }
         } else {
             return cv::Vec3f(0.3, 0, 0);
         }
     }
 private:
+    const Pose pose;
     const int width;
     const int height;
     const float fov_x;
     const float fov_y;
-    const Pose pose;
 };
 
 
