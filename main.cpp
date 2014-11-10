@@ -271,26 +271,49 @@ private:
 };
 
 
-int main(int argc, char** argv) {
-    google::InitGoogleLogging(argv[0]);
-    google::InstallFailureSignalHandler();
-
-    Scene scene;
+// TODO: serialize as prototxt
+std::unique_ptr<Scene> createCornellTesseract() {
+    std::unique_ptr<Scene> scene_p(new Scene());
+    Scene& scene = *scene_p;
     // Create [-1,1]^3 * [0,2] box
-    // floor(w-)
+    // X walls: white
+    // Y-:green Y+:red
+    // Z-:yellow Z+:blue
+    // floor(W)
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 0)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         );
-    // ceiling(w+)
     scene.objects.emplace_back(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 2)),
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, -1), -2)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         );
-    // walls
+    // walls(X)
     scene.objects.emplace_back(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 1, 0, 0), 0)),
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(1, 0, 0, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(-1, 0, 0, 0), -1)),
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
+    // walls(Y)
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 1, 0, 0), -1)),
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 1, 0)))
+        );
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, -1, 0, 0), -1)),
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 0, 0)))
+        );
+    // walls(Z)
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 1, 0), -1)),
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 0)))
+        );
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, -1, 0), -1)),
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 0, 1)))
         );
 
     // object inside room
@@ -303,6 +326,14 @@ int main(int argc, char** argv) {
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 2), 0.5)),
         std::unique_ptr<Material>(new UniformEmissionMaterial(fromRgb(10, 10, 10)))
         );
+    return scene_p;
+}
+
+int main(int argc, char** argv) {
+    google::InitGoogleLogging(argv[0]);
+    google::InstallFailureSignalHandler();
+
+    auto scene = createCornellTesseract();
 
     // rotation:
     // World <- Camera
@@ -322,7 +353,7 @@ int main(int argc, char** argv) {
         100, 100, 1.0, 1.0);
 
     Sampler sampler;
-    cv::Mat result = camera.render(scene, sampler);
+    cv::Mat result = camera.render(*scene, sampler);
     cv::imwrite("render.png", result);
 
     return 0;
