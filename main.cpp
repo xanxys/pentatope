@@ -28,9 +28,95 @@ cv::Vec3f toCvRgb(const Spectrum& spec) {
 
 
 // BSDF at particular point + emission.
+// Contains MicroGeometry.
+// Note that geom can be different from raw MicroGeometry
+// obtained from Geometry, for example when using normal maps.
+// Material should handle such MicroGeometry transformation.
 class BSDF {
 public:
+    BSDF(const MicroGeometry& geom) : geom(geom) {
+    }
+    virtual ~BSDF() {
+    }
+
+    virtual Spectrum bsdf(
+            const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const {
+        return Spectrum::Zero();
+    }
+    virtual Spectrum emission(const Eigen::Vector4f& dir_out) const {
+        return Spectrum::Zero();
+    }
+protected:
+    MicroGeometry geom;
 };
+
+
+class LambertBRDF : public BSDF {
+public:
+    // TODO: unit of refl?
+    LambertBRDF(const MicroGeometry& geom, const Spectrum& refl) : BSDF(geom), refl(refl) {
+    }
+
+    Spectrum bsdf(const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const override {
+        return refl;
+    }
+private:
+    Spectrum refl;
+};
+
+
+// uniform emission with no reflection nor transparency.
+class EmissionBRDF : public BSDF {
+public:
+    EmissionBRDF(const MicroGeometry& geom, const Spectrum& e_radiance) :
+            BSDF(geom), e_radiance(e_radiance) {
+    }
+    Spectrum emission(const Eigen::Vector4f& dir_out) const override {
+        return e_radiance;
+    }
+private:
+    Spectrum e_radiance;
+};
+
+
+class Material {
+public:
+    virtual ~Material() {
+    }
+    // returns pointer that will be magically freed,
+    // because references are hard to use with std::pair etc.
+    virtual const BSDF* getBSDF(const MicroGeometry& geom) = 0;
+};
+
+
+class UniformLambertMaterial : public Material {
+public:
+    UniformLambertMaterial(const Spectrum& refl) : refl(refl) {
+    }
+
+    const BSDF* getBSDF(const MicroGeometry& geom) override {
+        // TODO: allocate from pool and release!
+        return new LambertBRDF(geom, refl);
+    }
+private:
+    const Spectrum refl;
+};
+
+
+class UniformEmissionMaterial : public Material {
+public:
+    UniformEmissionMaterial(const Spectrum& emission_radiance) :
+            e_radiance(emission_radiance) {
+    }
+    const BSDF* getBSDF(const MicroGeometry& geom) override {
+        // TODO: allocate from pool and release!
+        return new EmissionBRDF(geom, e_radiance);
+    }
+private:
+    Spectrum e_radiance;
+};
+
+
 
 class Sampler {
 public:
@@ -72,10 +158,10 @@ public:
         background_radiance = fromRgb(0, 0, 0.1);
     }
 
-    boost::optional<std::pair<bool, MicroGeometry>>
+    boost::optional<std::pair<const BSDF*, MicroGeometry>>
             intersect(const Ray& ray) const {
         float t_min = std::numeric_limits<float>::max();
-        boost::optional<std::pair<bool, MicroGeometry>> isect_nearest;
+        boost::optional<std::pair<const BSDF*, MicroGeometry>> isect_nearest;
 
         for(const auto& object : objects) {
             auto isect = object.first->intersect(ray);
@@ -84,7 +170,8 @@ public:
             }
             const float t = ray.at(isect->pos());
             if(t < t_min) {
-                isect_nearest = std::make_pair(object.second, *isect);
+                isect_nearest = std::make_pair(
+                    object.second->getBSDF(*isect), *isect);
                 t_min = t;
             }
         }
@@ -103,27 +190,24 @@ public:
 
         const auto isect = intersect(ray);
         if(isect) {
-            const bool o_type = isect->first;
+            const BSDF* o_bsdf = isect->first;
             const MicroGeometry mg = isect->second;
-            if(o_type) {
-                // light
-                return light_radiance;
-            } else {
-                // lambert
-                const float epsilon = 1e-6;
-                const float brdf = 0.1;  // TODO: calculate this
-                const auto dir = sampler.uniformHemisphere(mg.normal());
-                // avoid self-intersection by offseting origin.
-                Ray new_ray(mg.pos() + epsilon * dir, dir);
-                return brdf * mg.normal().dot(dir) * pi * pi * trace(new_ray, sampler, depth - 1);
-            }
+            const float epsilon = 1e-6;
+            const auto dir = sampler.uniformHemisphere(mg.normal());
+            // avoid self-intersection by offseting origin.
+            Ray new_ray(mg.pos() + epsilon * dir, dir);
+            return
+                o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
+                    trace(new_ray, sampler, depth - 1)) *
+                (mg.normal().dot(dir) * pi * pi) +
+                o_bsdf->emission(-ray.direction);
         } else {
             return background_radiance;
         }
     }
 
 public:
-    std::vector<std::pair<std::unique_ptr<Geometry>, bool>> objects;
+    std::vector<std::pair<std::unique_ptr<Geometry>, std::unique_ptr<Material>>> objects;
     Spectrum background_radiance;
 };
 
@@ -196,24 +280,29 @@ int main(int argc, char** argv) {
     // floor(w-)
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 0)),
-        false);
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
     // ceiling(w+)
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 2)),
-        false);
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
     // walls
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 1, 0, 0), 0)),
-        false);  // object
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
 
     // object inside room
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 0.2), 0.2)),
-        false);
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
     // light at center of ceiling
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 2), 0.5)),
-        true);
+        std::unique_ptr<Material>(new UniformEmissionMaterial(fromRgb(10, 10, 10)))
+        );
 
     // rotation:
     // World <- Camera
