@@ -7,17 +7,16 @@ else:
     compiler = 'g++'
 
 env = Environment(
-    CXX = compiler,
-    CXXFLAGS = '-std=c++11 -Wall -Wextra',
-    CCFLAGS = ['-O3', '-g'],
-    CPPPATH = [
-    '/usr/include/eigen3',
-    '/usr/include/jsoncpp',
-    './',
+    CXX=compiler,
+    CXXFLAGS='-std=c++11 -Wall -Wextra',
+    CCFLAGS=['-O3', '-g'],
+    CPPPATH=[
+        '/usr/include/eigen3',
+        './',
     ],
-    LIBPATH = [
+    LIBPATH=[
     ],
-    CPPDEFINES = [
+    CPPDEFINES=[
         # 'ENABLE_USB_IO'
     ]
     )
@@ -31,7 +30,6 @@ LIBS = [
     'libboost_thread',
     'libdl',
     'libglog',
-    'libjsoncpp',
     'libopencv_core',
     'libopencv_features2d',
     'libopencv_highgui',
@@ -39,24 +37,21 @@ LIBS = [
     'libpthread',
 ]
 
-
-def exclude(f):
-    return str(f).startswith('mist/') or str(f).startswith('SLIC-Superpixels')
-
-
 env.Program(
     'pentatope',
-    source =
-        [env.Object(f) for f in env.Glob('*.cpp') + env.Glob('*/*.cpp') + env.Glob("*/*.c") + env.Glob('*.cc')
-            if not f.name.endswith('_test.cpp') and not exclude(f)],
-    LIBS = LIBS)
+    source=[
+        env.Object(f) for f
+        in env.Glob('*.cpp') + env.Glob('*/*.cpp') + env.Glob("*/*.c") + env.Glob('*.cc')
+        if not f.name.endswith('_test.cpp')],
+    LIBS=LIBS)
 
 program_test = env.Program(
     'pentatope_test',
-    source =
-        [env.Object(f) for f in env.Glob('*.cpp') + env.Glob('*/*.cpp') + env.Glob("*/*.c") + env.Glob('*.cc')
-            if f.name != 'main.cpp' and not exclude(f)],
-    LIBS = LIBS + ['libgtest', 'libgtest_main'])
+    source=[
+        env.Object(f) for f
+        in env.Glob('*.cpp') + env.Glob('*/*.cpp') + env.Glob("*/*.c") + env.Glob('*.cc')
+        if f.name != 'main.cpp'],
+    LIBS=LIBS + ['libgtest', 'libgtest_main'])
 
 env.Command('test', None, './' + program_test[0].path)
 env.Depends('test', 'pentatope_test')
