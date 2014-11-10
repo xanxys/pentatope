@@ -1,6 +1,5 @@
 #include <limits>
 #include <random>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -9,123 +8,12 @@
 #include <glog/logging.h>
 #include <opencv2/opencv.hpp>
 
-const float pi = 3.14159265359;
-
-// This error is thrown when someone tries to do physically
-// impossible things.
-class physics_error : public std::logic_error {
-public:
-    physics_error(const std::string& what) : std::logic_error(what) {
-    }
-};
-
-
-// Use this to represent (relative) angle to avoid
-// confusion over radian vs degree.
-using Radianf = float;
+#include <geometry.h>
+#include <space.h>
 
 using Spectrum = Eigen::Vector3f;
 
-// pose in 4-d space. (4 translational DoF + 6 rotational DoF)
-// represented by local to parent transform.
-class Pose {
-public:
-    // identity.
-    Pose() : pose(Eigen::Transform<float, 4, Eigen::Affine>::Identity()) {
-    }
-
-    Eigen::Transform<float, 4, Eigen::Affine> asAffine() const {
-        return pose;
-    }
-private:
-    Eigen::Transform<float, 4, Eigen::Affine> pose;
-};
-
-// intersection range: (0, +inf)
-class Ray {
-public:
-    Ray(Eigen::Vector4f origin, Eigen::Vector4f direction) :
-        origin(origin), direction(direction) {
-    }
-
-    Eigen::Vector4f at(float t) const {
-        return origin + direction * t;
-    }
-
-    float at(const Eigen::Vector4f& pos) const {
-        return (pos - origin).dot(direction);
-    }
-public:
-    const Eigen::Vector4f origin;
-    const Eigen::Vector4f direction;
-};
-
-
-// An infinitesimal part of Geometry. (i.e. a point on hypersurface)
-// mainly used to represent surface near intersection points.
-class MicroGeometry {
-public:
-    MicroGeometry(const Eigen::Vector4f& pos, const Eigen::Vector4f& normal) :
-            _pos(pos), _normal(normal) {
-    }
-
-    Eigen::Vector4f pos() const {
-        return _pos;
-    }
-
-    Eigen::Vector4f normal() const {
-        return _normal;
-    }
-private:
-    // non-const to allow easy copying.
-    Eigen::Vector4f _pos;
-    Eigen::Vector4f _normal;
-};
-
-
-// Definition of shape in 4-d space.
-class Geometry {
-public:
-    virtual boost::optional<MicroGeometry> intersect(const Ray& ray) const;
-};
-
-
-
-class Sphere : public Geometry {
-public:
-    Sphere(Eigen::Vector4f center, float radius) :
-            center(center), radius(radius) {
-    }
-
-    boost::optional<MicroGeometry>
-            intersect(const Ray& ray) const override {
-        const Eigen::Vector4f delta = ray.origin - center;
-        // turn into a quadratic equation at^2+bt+c=0
-        const float a = std::pow(ray.direction.norm(), 2);
-        const float b = 2 * delta.dot(ray.direction);
-        const float c = std::pow(delta.norm(), 2) - std::pow(radius, 2);
-        const float det = b * b - 4 * a * c;
-        if(det < 0) {
-            return boost::none;
-        }
-        const float t0 = (-b - std::sqrt(det)) / (2 * a);
-        const float t1 = (-b + std::sqrt(det)) / (2 * a);
-        float t_isect;
-        if(t0 > 0) {
-            t_isect = t0;
-        } else if(t1 > 0) {
-            t_isect = t1;
-        } else {
-            return boost::none;
-        }
-        // store intersection
-        const Eigen::Vector4f p = ray.at(t_isect);
-        return MicroGeometry(p, (p - center).normalized());
-    }
-private:
-    const Eigen::Vector4f center;
-    const float radius;
-};
+using namespace pentatope;
 
 
 // BSDF at particular point + emission.
