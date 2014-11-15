@@ -86,9 +86,8 @@ class Material {
 public:
     virtual ~Material() {
     }
-    // returns pointer that will be magically freed,
-    // because references are hard to use with std::pair etc.
-    virtual const BSDF* getBSDF(const MicroGeometry& geom) = 0;
+    virtual std::unique_ptr<BSDF>
+        getBSDF(const MicroGeometry& geom) = 0;
 };
 
 
@@ -101,9 +100,8 @@ public:
         }
     }
 
-    const BSDF* getBSDF(const MicroGeometry& geom) override {
-        // TODO: allocate from pool and release!
-        return new LambertBRDF(geom, refl);
+    std::unique_ptr<BSDF> getBSDF(const MicroGeometry& geom) override {
+        return std::unique_ptr<BSDF>(new LambertBRDF(geom, refl));
     }
 private:
     const Spectrum refl;
@@ -115,9 +113,8 @@ public:
     UniformEmissionMaterial(const Spectrum& emission_radiance) :
             e_radiance(emission_radiance) {
     }
-    const BSDF* getBSDF(const MicroGeometry& geom) override {
-        // TODO: allocate from pool and release!
-        return new EmissionBRDF(geom, e_radiance);
+    std::unique_ptr<BSDF> getBSDF(const MicroGeometry& geom) override {
+        return std::unique_ptr<BSDF>(new EmissionBRDF(geom, e_radiance));
     }
 private:
     Spectrum e_radiance;
@@ -165,10 +162,19 @@ public:
         background_radiance = fromRgb(0, 0, 0.1);
     }
 
-    boost::optional<std::pair<const BSDF*, MicroGeometry>>
+    // std::unique_ptr is not nullptr if valid, otherwise invalid
+    // (MicroGeometry will be undefined).
+    //
+    // TODO: use std::optional<std::pair<std::unique_ptr<BSDF>, MicroGeometry>>
+    //
+    // upgrading boost is too cumbersome; wait for C++14.
+    // boost::optional 1.53.0 doesn't support move semantics,
+    // so optional<...unique_ptr is impossible to use although desirable.
+    // that's why I'm stuck with this interface.
+    std::pair<std::unique_ptr<BSDF>, MicroGeometry>
             intersect(const Ray& ray) const {
         float t_min = std::numeric_limits<float>::max();
-        boost::optional<std::pair<const BSDF*, MicroGeometry>> isect_nearest;
+        std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
 
         for(const auto& object : objects) {
             auto isect = object.first->intersect(ray);
@@ -177,8 +183,9 @@ public:
             }
             const float t = ray.at(isect->pos());
             if(t < t_min) {
-                isect_nearest = std::make_pair(
-                    object.second->getBSDF(*isect), *isect);
+                isect_nearest.first.reset(
+                    object.second->getBSDF(*isect).release());
+                isect_nearest.second = *isect;
                 t_min = t;
             }
         }
@@ -195,10 +202,10 @@ public:
 
         const Spectrum light_radiance = fromRgb(50, 50, 50);
 
-        const auto isect = intersect(ray);
-        if(isect) {
-            const BSDF* o_bsdf = isect->first;
-            const MicroGeometry mg = isect->second;
+        auto isect = intersect(ray);
+        if(isect.first) {
+            const std::unique_ptr<BSDF> o_bsdf = std::move(isect.first);
+            const MicroGeometry mg = isect.second;
             const float epsilon = 1e-6;
             const auto dir = sampler.uniformHemisphere(mg.normal());
             // avoid self-intersection by offseting origin.
@@ -234,8 +241,9 @@ public:
     }
 
     // return 8 bit BGR image.
-    cv::Mat render(const Scene& scene, Sampler& sampler) const {
-        const int samples_per_pixel = 100;
+    cv::Mat render(
+            const Scene& scene, Sampler& sampler,
+            const int samples_per_pixel) const {
         // TODO: use Spectrum array.
         cv::Mat film(height, width, CV_32FC3);
         film = 0.0f;
@@ -374,7 +382,7 @@ int main(int argc, char** argv) {
         200, 200, 2.57, 2.57);
 
     Sampler sampler;
-    cv::Mat result = camera.render(*scene, sampler);
+    cv::Mat result = camera.render(*scene, sampler, 100);
     cv::imwrite("render.png", result);
 
     return 0;

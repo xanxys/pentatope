@@ -17,6 +17,11 @@ namespace pentatope {
 // mainly used to represent surface near intersection points.
 class MicroGeometry {
 public:
+    // Initialize with undef value.
+    // This constructor shouldn't exist, but leave this
+    // until move semantics is better-supported eveywhere.
+    MicroGeometry();
+
     MicroGeometry(
     		const Eigen::Vector4f& pos, const Eigen::Vector4f& normal);
 

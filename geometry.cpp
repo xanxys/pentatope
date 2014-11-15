@@ -4,6 +4,8 @@
 
 namespace pentatope {
 
+MicroGeometry::MicroGeometry() {
+}
 
 MicroGeometry::MicroGeometry(const Eigen::Vector4f& pos, const Eigen::Vector4f& normal) :
         _pos(pos), _normal(normal) {
