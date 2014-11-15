@@ -11,116 +11,16 @@
 #include <opencv2/opencv.hpp>
 
 #include <geometry.h>
+#include <light.h>
+#include <material.h>
 #include <space.h>
 
-// Currently RGB.
-// TODO: use properly defined values.
-using Spectrum = Eigen::Vector3f;
 
 using namespace pentatope;
-
-Spectrum fromRgb(float r, float g, float b) {
-    return Spectrum(r, g, b);
-}
 
 cv::Vec3f toCvRgb(const Spectrum& spec) {
     return cv::Vec3f(spec(2), spec(1), spec(0));
 }
-
-
-// BSDF at particular point + emission.
-// Contains MicroGeometry.
-// Note that geom can be different from raw MicroGeometry
-// obtained from Geometry, for example when using normal maps.
-// Material should handle such MicroGeometry transformation.
-class BSDF {
-public:
-    BSDF(const MicroGeometry& geom) : geom(geom) {
-    }
-    virtual ~BSDF() {
-    }
-
-    virtual Spectrum bsdf(
-            const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const {
-        return Spectrum::Zero();
-    }
-    virtual Spectrum emission(const Eigen::Vector4f& dir_out) const {
-        return Spectrum::Zero();
-    }
-protected:
-    MicroGeometry geom;
-};
-
-
-class LambertBRDF : public BSDF {
-public:
-    // refl: [0, 1] value.
-    LambertBRDF(const MicroGeometry& geom, const Spectrum& refl) : BSDF(geom), refl(refl) {
-        refl_normalized = refl * (3 / (4 * pi));
-    }
-
-    Spectrum bsdf(const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const override {
-        return refl_normalized;
-    }
-private:
-    Spectrum refl;
-    Spectrum refl_normalized;
-};
-
-
-// uniform emission with no reflection nor transparency.
-class EmissionBRDF : public BSDF {
-public:
-    EmissionBRDF(const MicroGeometry& geom, const Spectrum& e_radiance) :
-            BSDF(geom), e_radiance(e_radiance) {
-    }
-    Spectrum emission(const Eigen::Vector4f& dir_out) const override {
-        return e_radiance;
-    }
-private:
-    Spectrum e_radiance;
-};
-
-
-class Material {
-public:
-    virtual ~Material() {
-    }
-    virtual std::unique_ptr<BSDF>
-        getBSDF(const MicroGeometry& geom) = 0;
-};
-
-
-class UniformLambertMaterial : public Material {
-public:
-    // refl: [0, 1] value.
-    UniformLambertMaterial(const Spectrum& refl) : refl(refl) {
-        if(refl.minCoeff() < 0 || refl.maxCoeff() > 1) {
-            throw physics_error("Don't create non energy conserving lambertian BSDF.");
-        }
-    }
-
-    std::unique_ptr<BSDF> getBSDF(const MicroGeometry& geom) override {
-        return std::unique_ptr<BSDF>(new LambertBRDF(geom, refl));
-    }
-private:
-    const Spectrum refl;
-};
-
-
-class UniformEmissionMaterial : public Material {
-public:
-    UniformEmissionMaterial(const Spectrum& emission_radiance) :
-            e_radiance(emission_radiance) {
-    }
-    std::unique_ptr<BSDF> getBSDF(const MicroGeometry& geom) override {
-        return std::unique_ptr<BSDF>(new EmissionBRDF(geom, e_radiance));
-    }
-private:
-    Spectrum e_radiance;
-};
-
-
 
 class Sampler {
 public:
@@ -199,8 +99,6 @@ public:
             LOG_EVERY_N(INFO, 1000000) << "trace: depth threshold reached";
             return Spectrum::Zero();
         }
-
-        const Spectrum light_radiance = fromRgb(50, 50, 50);
 
         auto isect = intersect(ray);
         if(isect.first) {

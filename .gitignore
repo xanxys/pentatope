@@ -4,3 +4,4 @@ pentatope_test
 .sconsign.dblite
 *.sublime-workspace
 *.sublime-project
+*.png
