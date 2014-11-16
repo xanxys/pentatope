@@ -14,6 +14,7 @@
 #include <light.h>
 #include <material.h>
 #include <sampling.h>
+#include <scene.h>
 #include <space.h>
 
 
@@ -22,126 +23,6 @@ using namespace pentatope;
 cv::Vec3f toCvRgb(const Spectrum& spec) {
     return cv::Vec3f(spec(2), spec(1), spec(0));
 }
-
-// Complete collection of visually relevant things.
-class Scene {
-public:
-    Scene() {
-        background_radiance = fromRgb(0, 0, 0.1);
-    }
-
-    // std::unique_ptr is not nullptr if valid, otherwise invalid
-    // (MicroGeometry will be undefined).
-    //
-    // TODO: use std::optional<std::pair<std::unique_ptr<BSDF>, MicroGeometry>>
-    //
-    // upgrading boost is too cumbersome; wait for C++14.
-    // boost::optional 1.53.0 doesn't support move semantics,
-    // so optional<...unique_ptr is impossible to use although desirable.
-    // that's why I'm stuck with this interface.
-    std::pair<std::unique_ptr<BSDF>, MicroGeometry>
-            intersect(const Ray& ray) const {
-        float t_min = std::numeric_limits<float>::max();
-        std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
-
-        for(const auto& object : objects) {
-            auto isect = object.first->intersect(ray);
-            if(!isect) {
-                continue;
-            }
-            const float t = ray.at(isect->pos());
-            if(t < t_min) {
-                isect_nearest.first.reset(
-                    object.second->getBSDF(*isect).release());
-                isect_nearest.second = *isect;
-                t_min = t;
-            }
-        }
-        return isect_nearest;
-    }
-
-    // Samples radiance L(ray.origin, -ray.direction) by
-    // raytracing.
-    Spectrum trace(const Ray& ray, Sampler& sampler, int depth) const {
-        if(depth <= 0) {
-            LOG_EVERY_N(INFO, 1000000) << "trace: depth threshold reached";
-            return Spectrum::Zero();
-        }
-
-        auto isect = intersect(ray);
-        if(isect.first) {
-            const std::unique_ptr<BSDF> o_bsdf = std::move(isect.first);
-            const MicroGeometry mg = isect.second;
-            const float epsilon = 1e-6;
-
-            const auto specular = o_bsdf->specular(-ray.direction);
-            if(specular) {
-                const auto dir = specular->first;
-                // avoid self-intersection by offseting origin.
-                Ray new_ray(mg.pos() + epsilon * dir, dir);
-                return
-                    specular->second.cwiseProduct(
-                        trace(new_ray, sampler, depth - 1)) +
-                    o_bsdf->emission(-ray.direction);
-            } else {
-                const auto dir = sampler.uniformHemisphere(mg.normal());;
-                // avoid self-intersection by offseting origin.
-                Ray new_ray(mg.pos() + epsilon * dir, dir);
-                return
-                    o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
-                        trace(new_ray, sampler, depth - 1)) *
-                    (std::abs(mg.normal().dot(dir)) * pi * pi) +
-                    o_bsdf->emission(-ray.direction) +
-                    directLight(
-                        mg.pos() + epsilon * dir,
-                        mg.normal(),
-                        -ray.direction, *o_bsdf);
-            }
-        } else {
-            return background_radiance;
-        }
-    }
-
-    // Calculate radiance that comes to pos, and reflected to dir_out.
-    // You must not call this for specular-only BSDFs.
-    Spectrum directLight(
-            const Eigen::Vector4f& pos,
-            const Eigen::Vector4f& normal,
-            const Eigen::Vector4f& dir_out, const BSDF& bsdf) const {
-        Spectrum result = Spectrum::Zero();
-        for(const auto& light : lights) {
-            auto inten = light->getIntensity(pos);
-            if(!isVisibleFrom(pos, inten.first)) {
-                continue;
-            }
-            const float dist = (inten.first - pos).norm();
-            const Eigen::Vector4f dir = (inten.first - pos).normalized();
-            result +=
-                inten.second.cwiseProduct(bsdf.bsdf(dir, dir_out)) *
-                (std::abs(normal.dot(dir)) / std::pow(dist, 3));
-        }
-        return result;
-    }
-
-    bool isVisibleFrom(const Eigen::Vector4f& from, const Eigen::Vector4f& to) const {
-        const Ray ray(from, (to - from).normalized());
-        const auto isect = intersect(ray);
-        if(!isect.first) {
-            // no obstacle (remember, Light doesn't intersect with rays)
-            return true;
-        }
-        return ray.at(isect.second.pos()) > (to - from).norm();
-    }
-public:
-    std::vector<std::pair<
-        std::unique_ptr<Geometry>,
-        std::unique_ptr<Material>>> objects;
-    std::vector<std::unique_ptr<Light>> lights;
-    Spectrum background_radiance;
-};
-
-
-
 
 // A point camera that can record 2-d slice of 3-d incoming light.
 // (corresponds to line camera in 3-d space)
@@ -221,7 +102,7 @@ private:
 
 // TODO: serialize as prototxt
 std::unique_ptr<Scene> createCornellTesseract() {
-    std::unique_ptr<Scene> scene_p(new Scene());
+    std::unique_ptr<Scene> scene_p(new Scene(fromRgb(0, 0, 0.1)));
     Scene& scene = *scene_p;
     // Create [-1,1]^3 * [0,2] box
     // X walls: white
