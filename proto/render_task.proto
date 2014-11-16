@@ -1,0 +1,31 @@
+package pentatope;
+
+// A description of rendering a single frame.
+// Contains scene description, camera, output image, etc.
+message RenderTask {
+    // "cornell": hardcoded Cornell box-like scene.
+    // (Bunch of spheres in a tesseract)
+    optional string scene_name = 1;
+
+    // Average number of samples / px.
+    // Note that actual # of samples can vary depending
+    // on sampling scheme.
+    optional uint32 sample_per_pixel = 2;
+
+    // A camera (and output image) to use for this render.
+    optional CameraConfig camera = 3;
+}
+
+// A camera type, pose, blur, tonemap, output image, etc.
+message CameraConfig {
+    // "perspective2": 2-d sliced perspective point camera.
+    optional string camera_type = 1;
+
+    // what's normally called width.
+    // must be > 0.
+    optional uint32 size_x = 2;
+
+    // what's normally called height.
+    // must be > 0.
+    optional uint32 size_y = 3;
+}

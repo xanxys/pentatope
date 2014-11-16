@@ -1,8 +1,12 @@
+#include <fstream>
 #include <memory>
+#include <stdexcept>
+#include <streambuf>
 #include <string>
 
 #include <Eigen/Dense>
 #include <glog/logging.h>
+#include <google/protobuf/text_format.h>
 #include <opencv2/opencv.hpp>
 
 #include <camera.h>
@@ -12,6 +16,8 @@
 #include <sampling.h>
 #include <scene.h>
 #include <space.h>
+
+#include <proto/render_task.pb.h>
 
 using namespace pentatope;
 
@@ -84,11 +90,47 @@ std::unique_ptr<Scene> createCornellTesseract() {
     return scene_p;
 }
 
+// fast but ugly code to get file content onto memory.
+// http://stackoverflow.com/a/2602060
+std::string readFile(const std::string& path) {
+    std::ifstream t(path);
+    if(t.fail()) {
+        throw std::runtime_error("Failed to open " + path);
+    }
+    std::string str;
+
+    t.seekg(0, std::ios::end);
+    str.reserve(t.tellg());
+    t.seekg(0, std::ios::beg);
+
+    str.assign(
+        (std::istreambuf_iterator<char>(t)),
+        std::istreambuf_iterator<char>());
+    return str;
+}
+
+std::unique_ptr<Scene> createSceneFromTextProtoFile(const std::string& path) {
+    // Load to on-memory string since google:: streams are hard to use.
+    std::string proto = readFile(path);
+
+    RenderTask rt;
+    if(!google::protobuf::TextFormat::ParseFromString(proto, &rt)) {
+        throw std::runtime_error("Couldn't parse RenderTask prototxt");
+    }
+
+    LOG(INFO) << "RenderTask loaded: " <<
+        (rt.has_scene_name() ? rt.scene_name() : "<scene name unspecified>");
+
+    return std::unique_ptr<Scene>();
+}
+
 int main(int argc, char** argv) {
     google::InitGoogleLogging(argv[0]);
     google::InstallFailureSignalHandler();
 
     auto scene = createCornellTesseract();
+
+    createSceneFromTextProtoFile("example/cornell_tesseract.prototxt");
 
     // rotation:
     // World <- Camera
