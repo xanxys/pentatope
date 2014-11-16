@@ -82,4 +82,34 @@ private:
 };
 
 
+// Although lights have less flexibility than EmissionBRDF,
+// Lights gets special sampling consideration, so are far more efficient.
+class Light {
+public:
+    // approximate power (in W^4) of Light. This is used
+    // to estimate contribution to the scene
+    // (and to sample more efficiently).
+    virtual float power() const = 0;
+
+    // Returns a light position for given pos_surf, and intensity.
+    // We need to use intensity rather than radiance because
+    // we're dealing with point light. (radiance is delta function)
+    virtual std::pair<Eigen::Vector4f, Spectrum> getIntensity(
+        const Eigen::Vector4f& pos_surf) const = 0;
+};
+
+
+class PointLight : public Light {
+public:
+    PointLight(const Eigen::Vector4f& pos, const Spectrum& power);
+    float power() const override;
+    std::pair<Eigen::Vector4f, Spectrum> getIntensity(
+        const Eigen::Vector4f& pos_surf) const override;
+private:
+    Eigen::Vector4f pos;
+    Spectrum intensity;
+};
+
+
+
 }  // namespace

@@ -82,5 +82,17 @@ boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
 }
 
 
+PointLight::PointLight(const Eigen::Vector4f& pos, const Spectrum& power) :
+        pos(pos), intensity(power / (2 * pi * pi)) {
+}
+
+float PointLight::power() const {
+    return intensity.norm() * (2 * pi * pi);
+}
+
+std::pair<Eigen::Vector4f, Spectrum> PointLight::getIntensity(
+        const Eigen::Vector4f& pos_surf) const {
+    return std::make_pair(pos, intensity);
+}
 
 }  // namespace

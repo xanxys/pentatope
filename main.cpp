@@ -90,16 +90,53 @@ public:
                 return
                     o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
                         trace(new_ray, sampler, depth - 1)) *
-                    (mg.normal().dot(dir) * pi * pi) +
-                    o_bsdf->emission(-ray.direction);
+                    (std::abs(mg.normal().dot(dir)) * pi * pi) +
+                    o_bsdf->emission(-ray.direction) +
+                    directLight(
+                        mg.pos() + epsilon * dir,
+                        mg.normal(),
+                        -ray.direction, *o_bsdf);
             }
         } else {
             return background_radiance;
         }
     }
 
+    // Calculate radiance that comes to pos, and reflected to dir_out.
+    // You must not call this for specular-only BSDFs.
+    Spectrum directLight(
+            const Eigen::Vector4f& pos,
+            const Eigen::Vector4f& normal,
+            const Eigen::Vector4f& dir_out, const BSDF& bsdf) const {
+        Spectrum result = Spectrum::Zero();
+        for(const auto& light : lights) {
+            auto inten = light->getIntensity(pos);
+            if(!isVisibleFrom(pos, inten.first)) {
+                continue;
+            }
+            const float dist = (inten.first - pos).norm();
+            const Eigen::Vector4f dir = (inten.first - pos).normalized();
+            result +=
+                inten.second.cwiseProduct(bsdf.bsdf(dir, dir_out)) *
+                (std::abs(normal.dot(dir)) / std::pow(dist, 3));
+        }
+        return result;
+    }
+
+    bool isVisibleFrom(const Eigen::Vector4f& from, const Eigen::Vector4f& to) const {
+        const Ray ray(from, (to - from).normalized());
+        const auto isect = intersect(ray);
+        if(!isect.first) {
+            // no obstacle (remember, Light doesn't intersect with rays)
+            return true;
+        }
+        return ray.at(isect.second.pos()) > (to - from).norm();
+    }
 public:
-    std::vector<std::pair<std::unique_ptr<Geometry>, std::unique_ptr<Material>>> objects;
+    std::vector<std::pair<
+        std::unique_ptr<Geometry>,
+        std::unique_ptr<Material>>> objects;
+    std::vector<std::unique_ptr<Light>> lights;
     Spectrum background_radiance;
 };
 
@@ -149,13 +186,17 @@ public:
 
         // tonemap.
         const float disp_gamma = 2.2;
-        float max_v = 0;
+        std::vector<float> vs;
+        vs.reserve(height * width);
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
                 const auto v = film.at<cv::Vec3f>(y, x);
-                max_v = std::max({max_v, v[0], v[1], v[2]});
+                vs.push_back(std::max({v[0], v[1], v[2]}));
             }
         }
+        std::sort(vs.begin(), vs.end());
+        const float max_v = vs[static_cast<int>(vs.size() * 0.99)];
+        LOG(INFO) << "Linear tonemapper: min=" << vs[0] << " 99%=" << max_v;
         cv::Mat image(height, width, CV_8UC3);
         for(int y = 0; y < height; y++) {
             for(int x = 0; x < width; x++) {
@@ -233,9 +274,16 @@ std::unique_ptr<Scene> createCornellTesseract() {
         std::unique_ptr<Material>(new GlassMaterial(1.5))
         );
     // light at center of ceiling
+    /*
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 2), 0.5)),
         std::unique_ptr<Material>(new UniformEmissionMaterial(fromRgb(10, 10, 10)))
+        );
+    */
+    scene.lights.emplace_back(
+        std::unique_ptr<Light>(new PointLight(
+            Eigen::Vector4f(0, 0, 0, 1.9),
+            fromRgb(100, 100, 100)))
         );
     return scene_p;
 }
@@ -264,7 +312,7 @@ int main(int argc, char** argv) {
         200, 200, 2.57, 2.57);
 
     Sampler sampler;
-    cv::Mat result = camera.render(*scene, sampler, 100);
+    cv::Mat result = camera.render(*scene, sampler, 10);
     cv::imwrite("render.png", result);
 
     return 0;
