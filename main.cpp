@@ -13,6 +13,7 @@
 #include <geometry.h>
 #include <light.h>
 #include <material.h>
+#include <sampling.h>
 #include <space.h>
 
 
@@ -21,39 +22,6 @@ using namespace pentatope;
 cv::Vec3f toCvRgb(const Spectrum& spec) {
     return cv::Vec3f(spec(2), spec(1), spec(0));
 }
-
-class Sampler {
-public:
-    Sampler() {
-    }
-
-    Eigen::Vector4f uniformHemisphere(const Eigen::Vector4f& normal) {
-        std::uniform_real_distribution<float> interval(-1, 1);
-        Eigen::Vector4f result;
-        while(true) {
-            result = Eigen::Vector4f(
-                interval(gen),
-                interval(gen),
-                interval(gen),
-                interval(gen));
-            const float radius = result.norm();
-            if(radius > 1 || radius == 0) {
-                continue;
-            }
-            const float cosine = result.dot(normal);
-            if(cosine >= 0) {
-                result /= radius;
-            } else {
-                result /= -radius;
-            }
-            return result;
-        }
-    }
-public:
-    std::mt19937 gen;
-};
-
-
 
 // Complete collection of visually relevant things.
 class Scene {
@@ -105,14 +73,26 @@ public:
             const std::unique_ptr<BSDF> o_bsdf = std::move(isect.first);
             const MicroGeometry mg = isect.second;
             const float epsilon = 1e-6;
-            const auto dir = sampler.uniformHemisphere(mg.normal());
-            // avoid self-intersection by offseting origin.
-            Ray new_ray(mg.pos() + epsilon * dir, dir);
-            return
-                o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
-                    trace(new_ray, sampler, depth - 1)) *
-                (mg.normal().dot(dir) * pi * pi) +
-                o_bsdf->emission(-ray.direction);
+
+            const auto specular = o_bsdf->specular(-ray.direction);
+            if(specular) {
+                const auto dir = specular->first;
+                // avoid self-intersection by offseting origin.
+                Ray new_ray(mg.pos() + epsilon * dir, dir);
+                return
+                    specular->second.cwiseProduct(
+                        trace(new_ray, sampler, depth - 1)) +
+                    o_bsdf->emission(-ray.direction);
+            } else {
+                const auto dir = sampler.uniformHemisphere(mg.normal());;
+                // avoid self-intersection by offseting origin.
+                Ray new_ray(mg.pos() + epsilon * dir, dir);
+                return
+                    o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
+                        trace(new_ray, sampler, depth - 1)) *
+                    (mg.normal().dot(dir) * pi * pi) +
+                    o_bsdf->emission(-ray.direction);
+            }
         } else {
             return background_radiance;
         }
@@ -247,6 +227,10 @@ std::unique_ptr<Scene> createCornellTesseract() {
     scene.objects.emplace_back(
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 0.2), 0.2)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
+        );
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0.5, 0.1, 0.5), 0.5)),
+        std::unique_ptr<Material>(new GlassMaterial(1.5))
         );
     // light at center of ceiling
     scene.objects.emplace_back(

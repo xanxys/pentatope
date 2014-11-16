@@ -30,4 +30,13 @@ std::unique_ptr<BSDF> UniformEmissionMaterial::getBSDF(
     return std::unique_ptr<BSDF>(new EmissionBRDF(geom, e_radiance));
 }
 
+
+GlassMaterial::GlassMaterial(float refractive_index) :
+	refractive_index(refractive_index) {
+}
+
+std::unique_ptr<BSDF> GlassMaterial::getBSDF(const MicroGeometry& geom) {
+	return std::unique_ptr<BSDF>(new RefractiveBTDF(geom, refractive_index));
+}
+
 }  // namespace

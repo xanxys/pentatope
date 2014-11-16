@@ -3,8 +3,12 @@
 // BSDF is a description of light at a single point,
 // why Material (not contained here) are distribution of BSDF
 // over geometry and/or space.
+//
+// TODO: is BSDF really necessary? why not std::function?
+// Consider introducing LambdaBSDF which holds 2 closures.
 #pragma once
 
+#include <boost/optional.hpp>
 #include <Eigen/Dense>
 
 #include <geometry.h>
@@ -29,6 +33,13 @@ public:
     BSDF(const MicroGeometry& geom);
     virtual ~BSDF();
 
+    // Currently, BSDF is completely specular of completely diffuse.
+
+    // Return specular component (dir_in, bsdf / delta function)
+    virtual boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
+        specular(const Eigen::Vector4f& dir_out) const;
+
+    // return non-specular BSDF.
     virtual Spectrum bsdf(
         const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const;
 
@@ -58,6 +69,16 @@ public:
     Spectrum emission(const Eigen::Vector4f& dir_out) const override;
 private:
     Spectrum e_radiance;
+};
+
+
+class RefractiveBTDF : public BSDF {
+public:
+    RefractiveBTDF(const MicroGeometry& geom, float refractive_index);
+    boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
+        specular(const Eigen::Vector4f& dir_out) const override;
+private:
+    float refractive_index;
 };
 
 

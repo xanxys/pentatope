@@ -12,10 +12,16 @@ BSDF::BSDF(const MicroGeometry& geom) : geom(geom) {
 BSDF::~BSDF() {
 }
 
+boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
+        BSDF::specular(const Eigen::Vector4f& dir_out) const {
+    return boost::none;
+}
+
 Spectrum BSDF::bsdf(
         const Eigen::Vector4f& dir_in, const Eigen::Vector4f& dir_out) const {
     return Spectrum::Zero();
 }
+
 Spectrum BSDF::emission(const Eigen::Vector4f& dir_out) const {
     return Spectrum::Zero();
 }
@@ -38,6 +44,43 @@ EmissionBRDF::EmissionBRDF(const MicroGeometry& geom, const Spectrum& e_radiance
 Spectrum EmissionBRDF::emission(const Eigen::Vector4f& dir_out) const {
     return e_radiance;
 }
+
+
+RefractiveBTDF::RefractiveBTDF(
+		const MicroGeometry& geom, float refractive_index) :
+         BSDF(geom), refractive_index(refractive_index) {
+    if(refractive_index <= 0) {
+        throw physics_error("Negative refractive index not allowed (yet)");
+    }
+}
+
+boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
+        RefractiveBTDF::specular(const Eigen::Vector4f& dir_out) const {
+    const float dout_cos = geom.normal().dot(dir_out);
+    // almost parallel to normal.
+    if(std::abs(dout_cos) >= 1 - 1e-3) {
+        return boost::optional<std::pair<Eigen::Vector4f, Spectrum>>(
+            std::make_pair(-dir_out, Spectrum::Ones()));
+    }
+
+    // Non-parallel: use Snell's law.
+    const float dout_sin = std::sqrt(1 - std::pow(dout_cos, 2));
+
+    // entering vs leaving.
+    const float rri = (dout_cos > 0) ? refractive_index : 1 / refractive_index;
+    Eigen::Vector4f dout_proj = dout_cos * geom.normal();
+    Eigen::Vector4f dout_perp = dir_out - dout_proj;
+    dout_proj.normalize();
+    dout_perp.normalize();
+
+    const float din_sin = dout_sin / rri;
+    const float din_cos = std::sqrt(1 - std::pow(din_sin, 2));
+    return boost::optional<std::pair<Eigen::Vector4f, Spectrum>>(
+        std::make_pair(
+            -dout_proj * din_cos - dout_perp * din_sin,
+            Spectrum::Ones()));
+}
+
 
 
 }  // namespace
