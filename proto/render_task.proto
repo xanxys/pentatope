@@ -21,6 +21,9 @@ message CameraConfig {
     // "perspective2": 2-d sliced perspective point camera.
     optional string camera_type = 1;
 
+    // transform to determine camera pose in the world coordinate.
+    optional RigidTransform local_to_world = 5;
+
     // what's normally called width.
     // must be > 0.
     optional uint32 size_x = 2;
@@ -28,4 +31,24 @@ message CameraConfig {
     // what's normally called height.
     // must be > 0.
     optional uint32 size_y = 3;
+
+    // field of view in degree
+    // only applicable to perspective camera_type
+    optional float fov_x = 6;
+    optional float fov_y = 7;
+}
+
+// 4-d rigid transform (= SE(4))
+// transform(x) = rotation * x + translation
+message RigidTransform {
+    // row-major 4x4 rotation matrix.
+    // must have 16 elements, and the matrix
+    // is a proper rotation matrix (det==1).
+    // 0 1 2 3
+    // ...
+    // ...  15
+    repeated float rotation = 1 [packed=true];
+
+    // 4-element translation vector.
+    repeated float translation = 2 [packed=true];
 }

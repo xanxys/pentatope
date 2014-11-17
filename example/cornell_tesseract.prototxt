@@ -1,1 +1,47 @@
 scene_name: "cornell"
+sample_per_pixel: 10
+camera {
+    camera_type: "perspective2"
+    # rotation:
+    # World <- Camera
+    # X+         X+(horz)
+    # W+         Y-(up)
+    # Z+         Z+(ignored)
+    # Y+         W+(forward)
+    local_to_world: {
+        # rotation =
+        # 1 0 0 0
+        # 0 0 0 1
+        # 0 0 1 0
+        # 0 -1 0 0
+        rotation: 1
+        rotation: 0
+        rotation: 0
+        rotation: 0
+
+        rotation: 0
+        rotation: 0
+        rotation: 0
+        rotation: 1
+
+        rotation: 0
+        rotation: 0
+        rotation: 1
+        rotation: 0
+
+        rotation: 0
+        rotation: -1
+        rotation: 0
+        rotation: 0
+
+        translation: 0
+        translation: -0.95
+        translation: 0
+        translation: 1
+    }
+
+    size_x: 200
+    size_y: 200
+    fov_x: 150
+    fov_y: 150
+}
