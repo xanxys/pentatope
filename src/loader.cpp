@@ -210,7 +210,7 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(const CameraConfig& config) 
 
 // load RenderTask from given prototxt file,
 // and return (scene, camera, #samples/px)
-std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
+std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
         loadProtoFile(const std::string& path) {
     // Load to on-memory string since google:: streams are hard to use.
     const std::string proto = readFile(path);
@@ -233,15 +233,20 @@ std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
 
     // Check sampling settings.
     if(!rt.has_sample_per_pixel()) {
-        throw std::runtime_error("sample_per_px not found");
+        throw invalid_task("sample_per_px not found");
     }
     int sample_per_px = rt.sample_per_pixel();
     if(sample_per_px <= 0) {
         throw physics_error("sampler_per_px must be > 0");
     }
 
+    // Check output settings.
+    if(!rt.has_output_path()) {
+        throw invalid_task("output_path not found");
+    }
+
     return std::make_tuple(
-        std::move(scene), std::move(camera), sample_per_px);
+        std::move(scene), std::move(camera), sample_per_px, rt.output_path());
 }
 
 }  // namespace

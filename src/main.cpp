@@ -41,9 +41,9 @@ int main(int argc, char** argv) {
         LOG(INFO) << "Render task path: " << task_path;
         auto task = loadProtoFile(task_path);
         auto scene = std::move(std::get<0>(task));
-        auto camera = std::move(std::get<1>(task));
-        auto sample_per_px = std::get<2>(task);
-        const std::string output_path = "render.png";
+        const auto camera = std::move(std::get<1>(task));
+        const auto sample_per_px = std::get<2>(task);
+        const auto output_path = std::get<3>(task);
 
         LOG(INFO) << "Starting task";
         Sampler sampler;

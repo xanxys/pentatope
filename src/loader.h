@@ -42,9 +42,9 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(
     const CameraConfig& config);
 
 // load RenderTask from given prototxt or binary proto file,
-// and return (scene, camera, #samples/px)
+// and return (scene, camera, #samples/px, output_path)
 // Binary proto is tried first, and then text proto.
-std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
+std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
     loadProtoFile(const std::string& path);
 
 }  // namespace
