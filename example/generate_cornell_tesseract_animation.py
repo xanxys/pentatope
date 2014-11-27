@@ -47,15 +47,24 @@ def setup_cornell_animation(duration, fps):
             [0, -1, 0, 0]])
         # world <- stage
         # lookat (0, 0, 0, 1)
-        # by (X,Y)-rotation
+        # by (X,Y) & (X,Z)-rotation
         pos0 = np.array([0, -0.95, 0, 1])
-        rot_per_sec = 1.0
-        angle = 2 * math.pi * rot_per_sec * t
-        stage_to_world = np.eye(4)
-        stage_to_world[0, 0] = math.cos(angle)
-        stage_to_world[1, 0] = math.sin(angle)
-        stage_to_world[0, 1] = -math.sin(angle)
-        stage_to_world[1, 1] = math.cos(angle)
+        rot_per_sec_xy = 1 / 2
+        rot_per_sec_xz = 1 / 3
+        angle_xy = 2 * math.pi * rot_per_sec_xy * t
+        angle_xz = 2 * math.pi * rot_per_sec_xz * t
+        rot_xy = np.eye(4)
+        rot_xy[0, 0] = math.cos(angle_xy)
+        rot_xy[1, 0] = math.sin(angle_xy)
+        rot_xy[0, 1] = -math.sin(angle_xy)
+        rot_xy[1, 1] = math.cos(angle_xy)
+        rot_xz = np.eye(4)
+        rot_xz[0, 0] = math.cos(angle_xz)
+        rot_xz[2, 0] = math.sin(angle_xz)
+        rot_xz[0, 2] = -math.sin(angle_xz)
+        rot_xz[2, 2] = math.cos(angle_xz)
+
+        stage_to_world = np.dot(rot_xy, rot_xz)
 
         pos_t = np.dot(stage_to_world, pos0)
         l_to_w_t = np.dot(stage_to_world, local_to_stage)
@@ -98,7 +107,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""
 Render animation that moves around center of cornell tesseract
-at 1 rotation/sec.""",
+at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '--duration', type=float, default=5.0,
@@ -136,6 +145,7 @@ at 1 rotation/sec.""",
         frames_dir = os.path.dirname(frames[0])
         command = [
             "ffmpeg",
+            "-y",  # overwrite
             "-framerate", str(args.fps),
             "-i", os.path.join(frames_dir, "%0d.png"),
             "-c:v", "libx264",
