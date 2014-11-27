@@ -109,6 +109,9 @@ at 1 rotation/sec.""",
     parser.add_argument(
         '--proc', type=int, default=1,
         help='How many processes to use')
+    parser.add_argument(
+        '--encode_to', type=str, default=None,
+        help='Output H264 movie. (ffmpeg must be in $PATH)')
 
     args = parser.parse_args()
     animation = setup_cornell_animation(args.duration, args.fps)
@@ -128,3 +131,15 @@ at 1 rotation/sec.""",
         # HACK: receive keyboard interrupt correctly
         # https://stackoverflow.com/questions/1408356/keyboard-interrupts-with-pythons-multiprocessing-pool
         pool.map_async(process_task, tasks).get(1000)
+
+    if args.encode_to is not None:
+        frames_dir = os.path.dirname(frames[0])
+        command = [
+            "ffmpeg",
+            "-framerate", str(args.fps),
+            "-i", os.path.join(frames_dir, "%0d.png"),
+            "-c:v", "libx264",
+            "-r", str(args.fps),
+            args.encode_to]
+        print('Encoding with command: %s' % command)
+        subprocess.check_call(command)
