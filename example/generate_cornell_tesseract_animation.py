@@ -90,6 +90,6 @@ if __name__ == '__main__':
 
     # Run tasks
     for (i, task) in enumerate(tasks):
-        print('Rendering frame %d of %d' % (i, n_frames))
+        print('Rendering frame %d of %d' % (i + 1, n_frames))
         subprocess.check_call(['build/pentatope', '--render', task])
 

@@ -211,12 +211,15 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(const CameraConfig& config) 
 // load RenderTask from given prototxt file,
 // and return (scene, camera, #samples/px)
 std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
-        loadTextProtoFile(const std::string& path) {
+        loadProtoFile(const std::string& path) {
     // Load to on-memory string since google:: streams are hard to use.
-    std::string proto = readFile(path);
+    const std::string proto = readFile(path);
     RenderTask rt;
-    if(!google::protobuf::TextFormat::ParseFromString(proto, &rt)) {
-        throw std::runtime_error("Couldn't parse RenderTask prototxt");
+    if(!rt.ParseFromString(proto)) {
+        if(!google::protobuf::TextFormat::ParseFromString(proto, &rt)) {
+            throw std::runtime_error(
+                "Couldn't parse RenderTask as either prototxt or binary proto");
+        }
     }
     LOG(INFO) << "RenderTask loaded: " <<
         (rt.has_scene_name() ? rt.scene_name() : "<scene name unspecified>");

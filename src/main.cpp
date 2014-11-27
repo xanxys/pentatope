@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     options_description desc("Renderer for 4-d space");
     desc.add_options()
         ("help", "show this message")
-        ("render", value<std::string>(), "run given RenderTask");
+        ("render", value<std::string>(), "run given RenderTask (either text or binary)");
     variables_map vars;
     store(parse_command_line(argc, argv, desc), vars);
     notify(vars);
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     } else if(vars.count("render") > 0) {
         const auto task_path = vars["render"].as<std::string>();
         LOG(INFO) << "Render task path: " << task_path;
-        auto task = loadTextProtoFile(task_path);
+        auto task = loadProtoFile(task_path);
         auto scene = std::move(std::get<0>(task));
         auto camera = std::move(std::get<1>(task));
         auto sample_per_px = std::get<2>(task);

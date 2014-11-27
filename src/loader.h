@@ -41,9 +41,10 @@ Pose loadPoseFromRigidTransform(const RigidTransform& rigid);
 std::unique_ptr<Camera2> loadCameraFromCameraConfig(
     const CameraConfig& config);
 
-// load RenderTask from given prototxt file,
+// load RenderTask from given prototxt or binary proto file,
 // and return (scene, camera, #samples/px)
+// Binary proto is tried first, and then text proto.
 std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
-    loadTextProtoFile(const std::string& path);
+    loadProtoFile(const std::string& path);
 
 }  // namespace
