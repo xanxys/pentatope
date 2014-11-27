@@ -139,7 +139,7 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
         pool = multiprocessing.Pool(args.proc)
         # HACK: receive keyboard interrupt correctly
         # https://stackoverflow.com/questions/1408356/keyboard-interrupts-with-pythons-multiprocessing-pool
-        pool.map_async(process_task, tasks).get(1000)
+        pool.map_async(process_task, tasks).get(1000 ** 3)  # None will not work
 
     if args.encode_to is not None:
         frames_dir = os.path.dirname(frames[0])
