@@ -2,6 +2,8 @@ package pentatope;
 
 // A description of rendering a single frame.
 // Contains scene description, camera, output image, etc.
+// It's not expected to distribute one RenderTask to
+// multiple nodes.
 message RenderTask {
     // "cornell": hardcoded Cornell box-like scene.
     // (Bunch of spheres in a tesseract)
@@ -14,9 +16,14 @@ message RenderTask {
 
     // A camera (and output image) to use for this render.
     optional CameraConfig camera = 3;
+
+    // Output file path. Should be full path.
+    optional string output_path = 4;
 }
 
-// A camera type, pose, blur, tonemap, output image, etc.
+// A camera type, pose, blur, tonemap, output image format, etc.
+// Although CameraConfig specified output format,
+// it's treated as opaque blob; IO should be specified by RenderTask.
 message CameraConfig {
     // "perspective2": 2-d sliced perspective point camera.
     optional string camera_type = 1;
