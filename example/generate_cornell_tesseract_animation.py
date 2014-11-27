@@ -1,16 +1,25 @@
 #!/bin/python2
 from __future__ import print_function, division
+import argparse
 import sys
-sys.path.append('build/proto')
-from render_task_pb2 import *
 from google.protobuf import text_format
 import numpy as np
 import math
 import os.path
 import tempfile
 import subprocess
+import multiprocessing
+sys.path.append('build/proto')
+from render_task_pb2 import *
 
-if __name__ == '__main__':
+
+def setup_cornell_animation(duration, fps):
+    """
+    duration: sec
+    fps: frames per sec
+
+    returns [(task path, image path)] sequentially
+    """
     content = open('example/cornell_tesseract.prototxt').read()
     rt_base = RenderTask()
     text_format.Merge(content, rt_base)
@@ -75,21 +84,47 @@ if __name__ == '__main__':
     print('Render images directory: %s' % frames_path_prefix)
     print('Render frame description directory: %s' % tasks_path_prefix)
 
-    duration = 5
-    fps = 30
-
     n_frames = int(duration * fps)
     print('Needs %d (= %f s * %f f/s) frames' % (n_frames, duration, fps))
+    return [create_frame_task(i / fps, i) for i in range(n_frames)]
 
-    tasks = []
-    frames = []
-    for i in range(n_frames):
-        task, frame = create_frame_task(i / fps, i)
-        tasks.append(task)
-        frames.append(frame)
+
+def process_task(task_path):
+    print('Processing %s' % task_path)
+    subprocess.check_call(['build/pentatope', '--render', task_path])
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="""
+Render animation that moves around center of cornell tesseract
+at 1 rotation/sec.""",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        '--duration', type=float, default=5.0,
+        help='Duration of animation')
+    parser.add_argument(
+        '--fps', type=float, default=30,
+        help='frames / second')
+    parser.add_argument(
+        '--proc', type=int, default=1,
+        help='How many processes to use')
+
+    args = parser.parse_args()
+    animation = setup_cornell_animation(args.duration, args.fps)
+
+    tasks, frames = zip(*animation)  # unzip
 
     # Run tasks
-    for (i, task) in enumerate(tasks):
-        print('Rendering frame %d of %d' % (i + 1, n_frames))
-        subprocess.check_call(['build/pentatope', '--render', task])
-
+    n_tasks = len(tasks)
+    if args.proc == 1:
+        # Run without multiprocessing to ease debugging
+        for (i, task) in enumerate(tasks):
+            print('Rendering frame %d of %d' % (i + 1, n_tasks))
+            subprocess.check_call(['build/pentatope', '--render', task])
+    else:
+        print('Using pool of %d processes' % args.proc)
+        pool = multiprocessing.Pool(args.proc)
+        # HACK: receive keyboard interrupt correctly
+        # https://stackoverflow.com/questions/1408356/keyboard-interrupts-with-pythons-multiprocessing-pool
+        pool.map_async(process_task, tasks).get(1000)
