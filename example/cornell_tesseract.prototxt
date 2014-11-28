@@ -1,5 +1,5 @@
 scene_name: "cornell"
-sample_per_pixel: 10
+sample_per_pixel: 100
 camera {
     camera_type: "perspective2"
     # rotation:
@@ -40,8 +40,9 @@ camera {
         translation: 1
     }
 
-    size_x: 200
-    size_y: 200
-    fov_x: 150
+    size_x: 640
+    size_y: 480
+    fov_x: 157
     fov_y: 150
 }
+output_path: "./render.png"
