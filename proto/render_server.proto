@@ -1,0 +1,15 @@
+package pentatope;
+import "render_task.proto";
+
+
+message RenderRequest {
+	// Task to be run on the server.
+	// task.output_path will be ignored,
+	// (i.e. server won't touch filesystem at all)
+	optional RenderTask task = 1;
+}
+
+message RenderResponse {
+	// Output blob. Typically image.
+	optional bytes output = 1;
+}
