@@ -8,8 +8,8 @@ RUN yum update -y; \
 # Project-dependent stuff
 RUN yum install -y \
     boost boost-devel \
-    protobuf protobuf-compiler gtest gtest-devel protobuf-devel \
-    pcl pcl-devel eigen3-devel opencv-devel \
+    protobuf protobuf-compiler gtest gtest-devel glog-devel protobuf-devel \
+    eigen3-devel opencv-devel \
     numpy scipy pycairo; \
     yum clean all
 # pcl: 1.7.1
@@ -21,4 +21,4 @@ RUN yum install -y \
 RUN cd /root; \
     git clone --depth=1 https://github.com/xanxys/pentatope; \
     cd pentatope; \
-    scons -j 16
+    scons -j 8
