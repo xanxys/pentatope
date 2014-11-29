@@ -148,6 +148,7 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
             "-y",  # overwrite
             "-framerate", str(args.fps),
             "-i", os.path.join(frames_dir, "%0d.png"),
+            "-crf", "18",  # visually lossless
             "-c:v", "libx264",
             "-r", str(args.fps),
             args.encode_to]
