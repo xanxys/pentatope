@@ -8,6 +8,9 @@ import argparse
 import urllib2
 import json
 import math
+import curses
+import tornado.httpclient
+import time
 
 class IncompatibleAPIError(Exception):
     """
@@ -89,6 +92,64 @@ def plan_action(n_samples):
     }
 
 
+def run_task():
+    print("Rendering frames")
+    print("{0: <64}|{1: >15}".format(
+        "Worker Status (##terminated  ==rendering ..requested)",
+        "Rendered Frames"))
+
+    total_frames = 10
+
+    def refresh_status(
+            p_terminated, p_booted, p_requested,
+            finished_frames):
+        cols = 65
+        n = cols - 2  # exclude "[" and "]"
+        segs = ["#", "=", ".", " "]
+        widths = [
+            int(p_terminated * n),
+            int((p_booted - p_terminated) * n),
+            int((p_requested - p_booted) * n)
+        ]
+        widths.append(n - sum(widths))
+
+        assert(len(segs) == len(widths))
+        bar_s = "["
+        for (seg, width) in zip(segs, widths):
+            bar_s += seg * width
+        bar_s += "]"
+
+        # 7
+        frames_s = "%8d (%3d%%)" % (finished_frames,
+            int(100 * finished_frames / total_frames))
+
+        print("{0: <65}{1: >15}".format(bar_s, frames_s),
+            end='\r')
+        sys.stdout.flush()
+
+    stat = {}
+    stat["finished_frames"] = 0
+    refresh_status(0.05, 0.8, 0.99, stat["finished_frames"])
+
+    def handle_request(response):
+        stat["finished_frames"] += 1
+        refresh_status(0.05, 0.8, 0.99, stat["finished_frames"])
+
+        if stat["finished_frames"] == total_frames:
+            print("")
+            tornado.ioloop.IOLoop.instance().stop()
+
+
+    http_client = tornado.httpclient.AsyncHTTPClient()
+    for i in range(total_frames):
+        http_client.fetch("http://www.xanxys.net/index.html", callback=handle_request)
+    tornado.ioloop.IOLoop.instance().start()
+
+    print("Encoding the results")
+
+    print("Done! Results written to hogehoge")
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""Render given animation.""",
@@ -124,21 +185,22 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # 1 minute clip @ 60fps, 1080p, 100sample/px
-    n_samples = 60 * 60 * 1920 * 1080 * 100
-    est = plan_action(n_samples)
+#    n_samples = 60 * 60 * 1920 * 1080 * 100
+#    est = plan_action(n_samples)
 
-    print("== Estimated Time & Price ==")
-    print("* time: %.1f hour" % est["time"])
-    print("* price: %.1f USD" % est["price"])
-    print("== Price Breakup ==")
-    print("* AWS EC2: %s, %s, spot %d nodes" %
-        (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
+#    print("== Estimated Time & Price ==")
+#    print("* time: %.1f hour" % est["time"])
+#    print("* price: %.1f USD" % est["price"])
+#    print("== Price Breakup ==")
+#    print("* AWS EC2: %s, %s, spot %d nodes" %
+#        (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
 
-    while True:
-        result = raw_input("Do you want to proceed? (y/n)")
-        if result == 'y':
-            break
-        elif result == 'n':
-            sys.exit(0)
+#    while True:
+#        result = raw_input("Do you want to proceed? (y/n)")
+#        if result == 'y':
+#            break
+#        elif result == 'n':
+#            sys.exit(0)
 
     print("Running tasks")
+    run_task()
