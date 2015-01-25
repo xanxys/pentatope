@@ -1,4 +1,4 @@
-FROM fedora:20
+FROM fedora:21
 
 # Basic stuff
 RUN yum update -y; \
@@ -8,7 +8,7 @@ RUN yum update -y; \
 # Project-dependent stuff
 RUN yum install -y \
     boost boost-devel \
-    protobuf protobuf-compiler gtest gtest-devel glog-devel protobuf-devel \
+    protobuf protobuf-compiler gflags-devel gtest gtest-devel glog-devel protobuf-devel \
     eigen3-devel opencv-devel \
     numpy scipy pycairo; \
     yum clean all
