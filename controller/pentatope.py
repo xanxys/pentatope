@@ -5,6 +5,8 @@ sys.path.append('build/proto')
 from render_task_pb2 import *
 from render_server_pb2 import *
 import argparse
+import boto
+import boto.ec2
 import urllib2
 import json
 import math
@@ -78,6 +80,15 @@ def plan_action(n_samples):
 
     aws_price = AWSPrice()
     spot = aws_price.get_ec2_spot(inst_type)
+
+    # Amazon Linux (HVM, instance-store), 2014.09.1
+    # https://aws.amazon.com/jp/amazon-linux-ami/
+    amis = {
+        "us-east": "ami-0268d56a",
+        "apac-tokyo": "ami-8985b088"
+    }
+
+    spot = [(reg, pr) for (reg, pr) in spot if reg in amis]
     best_spot = min(spot, key=lambda (region, price): price)
     n_instances = int(math.ceil(n_samples / samples_per_hour))
 
@@ -85,6 +96,7 @@ def plan_action(n_samples):
         "ec2": {
             "type": inst_type + " (spot)",
             "region": best_spot[0],
+            "ami": amis[best_spot[0]],
             "n_instances": n_instances
         },
         "price": best_spot[1] * n_instances,
@@ -179,28 +191,57 @@ if __name__ == '__main__':
     if not args.local and args.aws is None:
         print("You must specify at least one computation platform.", file=sys.stderr)
         sys.exit(1)
+
+    if args.aws is not None:
+        aws_cred = json.load(open(args.aws))
     
     if args.output_mp4 is None:
         print("You should specify one or more output format.", file=sys.stderr)
         sys.exit(1)
 
     # 1 minute clip @ 60fps, 1080p, 100sample/px
-#    n_samples = 60 * 60 * 1920 * 1080 * 100
-#    est = plan_action(n_samples)
+    n_samples = 60 * 60 * 1920 * 1080 * 100
+    est = plan_action(n_samples)
 
-#    print("== Estimated Time & Price ==")
-#    print("* time: %.1f hour" % est["time"])
-#    print("* price: %.1f USD" % est["price"])
-#    print("== Price Breakup ==")
-#    print("* AWS EC2: %s, %s, spot %d nodes" %
-#        (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
+    print("== Estimated Time & Price ==")
+    print("* time: %.1f hour" % est["time"])
+    print("* price: %.1f USD" % est["price"])
+    print("== Price Breakup ==")
+    print("* AWS EC2: %s, %s, spot %d nodes" %
+        (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
 
-#    while True:
-#        result = raw_input("Do you want to proceed? (y/n)")
-#        if result == 'y':
-#            break
-#        elif result == 'n':
-#            sys.exit(0)
+    while True:
+        result = raw_input("Do you want to proceed? (y/n)")
+        if result == 'y':
+            break
+        elif result == 'n':
+            sys.exit(0)
 
     print("Running tasks")
-    run_task()
+    # run_task()
+
+#    boto.config.add_section("Credentials")
+#    boto.config.set('Credentials', 'aws_access_key_id',
+#        aws_cred["access_key"])
+#    boto.config.set('Credentials', 'aws_secret_access_key',
+#        aws_cred["secret_access_key"])
+    region = boto.ec2.connect_to_region(
+        "ap-northeast-1",
+        #est["ec2"]["region"],
+        aws_access_key_id=aws_cred["access_key"],
+        aws_secret_access_key=aws_cred["secret_access_key"])
+    if region is None:
+        raise RuntimeError("Couldn't connect to %s" % est["ec2"]["region"])
+
+    spot_req = region.request_spot_instances(
+        "0.1",
+        est["ec2"]["ami"],
+        key_name=None,
+        security_groups=None,
+        instance_type="t1.micro")
+    print(spot_req)
+
+    while True:
+        print(spot_req.state)
+        time.sleep(1)
+
