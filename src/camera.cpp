@@ -1,7 +1,11 @@
 #include "camera.h"
 
 #include <algorithm>
+#include <thread>
 #include <vector>
+
+#include <boost/range/irange.hpp>
+
 
 namespace pentatope {
 
@@ -17,36 +21,118 @@ Camera2::Camera2(Pose pose,
     // TODO: check fov_x & fov_y errors.
 }
 
+
 // return 8 bit BGR image.
 cv::Mat Camera2::render(
         const Scene& scene, Sampler& sampler,
-        const int samples_per_pixel) const {
-    // TODO: use Spectrum array.
+        const int samples_per_pixel,
+        const int n_threads) const {
+    boost::lockfree::queue<TileSpecifier> tiles(0);
     cv::Mat film(height, width, CV_32FC3);
     film = 0.0f;
-    const float dx = std::tan(fov_x / 2);
-    const float dy = std::tan(fov_y / 2);
+
+    // Divide image into tiles.
+    const int tile_size = 32;
+    const int n_tiles_x = std::ceil(static_cast<double>(width) / tile_size);
+    const int n_tiles_y = std::ceil(static_cast<double>(height) / tile_size);
+    assert(n_tiles_x > 0 && n_tiles_y > 0);
+    assert(n_tiles_x * tile_size >= width);
+    assert(n_tiles_y * tile_size >= height);
+    int n_tiles = 0;
+    for(int iy : boost::irange(0, n_tiles_y)) {
+        for(int ix : boost::irange(0, n_tiles_x)) {
+            TileSpecifier tile;
+            tile.x0 = ix * tile_size;
+            tile.y0 = iy * tile_size;
+            tile.dx = std::min(tile_size, width - ix * tile_size);
+            tile.dy = std::min(tile_size, height - iy * tile_size);
+            const bool success = tiles.push(tile);
+            // insertion shouldn't & won't fail because there's only 1 thread.
+            assert(success);
+            n_tiles++;
+        }
+    }
+
+    // Spawn workers & wait until finish.
+    LOG(INFO) << "Distributing " << n_tiles << " into " << n_threads << " threads";
+    assert(n_threads > 0);
+    if(n_threads == 1) {
+        // Don't spawn threads for easy debugging.
+        workerBody(scene, sampler, samples_per_pixel, film, tiles);
+    } else {
+        auto child_samplers = sampler.split(n_threads);
+        std::vector<std::thread> workers;
+        for(int i : boost::irange(0, n_threads)) {
+            workers.emplace_back(
+                &Camera2::workerBody,
+                this,
+                std::cref(scene),
+                std::ref(child_samplers[i]),
+                samples_per_pixel,
+                std::ref(film),
+                std::ref(tiles));
+        }
+        for(std::thread& worker : workers) {
+            worker.join();
+        }
+    }
+
+    assert(tiles.empty());
+    return tonemapLinear(film);
+}
+
+
+void Camera2::workerBody(
+        const Scene& scene, Sampler& sampler,
+        const int samples_per_pixel,
+        cv::Mat& film,
+        boost::lockfree::queue<TileSpecifier>& task_queue) const {
+    while(!task_queue.empty()) {
+        TileSpecifier tile;
+        if(task_queue.pop(tile)) {
+            renderTile(scene, sampler, samples_per_pixel, film, tile);
+        } else {
+            std::this_thread::yield();
+        }
+    }
+}
+
+
+void Camera2::renderTile(
+        const Scene& scene, Sampler& sampler,
+        const int samples_per_pixel,
+        cv::Mat& film,
+        TileSpecifier tile) const {
+    assert(tile.dx > 0);
+    assert(tile.dy > 0);
+    // TODO: use Spectrum array.
+    const float c_dx = std::tan(fov_x / 2);
+    const float c_dy = std::tan(fov_y / 2);
     const Eigen::Vector4f org_w = pose.asAffine().translation();
     std::uniform_real_distribution<float> px_var(-0.5, 0.5);
-    for(int y = 0; y < height; y++) {
-        for(int x = 0; x < width; x++) {
+    for(int y = tile.y0; y < tile.y0 + tile.dy; y++) {
+        for(int x = tile.x0; x < tile.x0 + tile.dx; x++) {
             Eigen::Vector4f dir_c(
-                (((x + px_var(sampler.gen)) * 1.0f / width) - 0.5) * dx,
-                (((y + px_var(sampler.gen)) * 1.0f / height) - 0.5) * dy,
+                (((x + px_var(sampler.gen)) * 1.0f / width) - 0.5) * c_dx,
+                (((y + px_var(sampler.gen)) * 1.0f / height) - 0.5) * c_dy,
                 0,
                 1);
             dir_c.normalize();
             Eigen::Vector4f dir_w = pose.asAffine().rotation() * dir_c;
 
             Ray ray(org_w, dir_w);
+            cv::Vec3f accum(0, 0, 0);
             for(int i = 0; i < samples_per_pixel; i++) {
-                film.at<cv::Vec3f>(y, x) += toCvRgb(scene.trace(ray, sampler, 5));
+                accum += toCvRgb(scene.trace(ray, sampler, 5));
             }
+            film.at<cv::Vec3f>(y, x) = accum / samples_per_pixel;
         }
     }
-    film /= samples_per_pixel;
+}
 
-    // tonemap.
+
+cv::Mat Camera2::tonemapLinear(const cv::Mat& film) const {
+    // Get (mostly) max value.
     const float disp_gamma = 2.2;
     std::vector<float> vs;
     vs.reserve(height * width);
@@ -59,6 +145,8 @@ cv::Mat Camera2::render(
     std::sort(vs.begin(), vs.end());
     const float max_v = vs[static_cast<int>(vs.size() * 0.99)];
     LOG(INFO) << "Linear tonemapper: min=" << vs[0] << " 99%=" << max_v;
+
+    // Apply linear scaling and convert to 8-bit image.
     cv::Mat image(height, width, CV_8UC3);
     for(int y = 0; y < height; y++) {
         for(int x = 0; x < width; x++) {

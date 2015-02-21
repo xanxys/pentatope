@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/lockfree/queue.hpp>
 #include <opencv2/opencv.hpp>
 
 #include <sampling.h>
@@ -21,8 +22,32 @@ public:
     // return 8 bit BGR image.
     cv::Mat render(
         const Scene& scene, Sampler& sampler,
-        const int samples_per_pixel) const;
+        const int samples_per_pixel,
+        const int n_threads) const;
+private:
+    // std::tuple<int, int, int, int> doesn't work because it lacks
+    // boost::has_trivial_assign trait.
+    struct TileSpecifier {
+        int x0;
+        int y0;
+        int dx;
+        int dy;
+    };
 
+    // Run until all tiles in task_queue is consumed.
+    void workerBody(
+        const Scene& scene, Sampler& sampler,
+        const int sampler_per_pixel,
+        cv::Mat& target,
+        boost::lockfree::queue<TileSpecifier>& task_queue) const;
+
+    // Write rendered samples to specified rectangle region of target.
+    void renderTile(
+        const Scene& scene, Sampler& sampler,
+        const int sampler_per_pixel,
+        cv::Mat& target,
+        TileSpecifier tile) const;
+    cv::Mat tonemapLinear(const cv::Mat& image) const;
 private:
     const Pose pose;
     const int width;

@@ -13,6 +13,10 @@ class Sampler {
 public:
     Sampler();
 
+    // Split this Sampler into independent but deterministic Samplers.
+    // All children and this will be independent too.
+    std::vector<Sampler> split(int n);
+
     Eigen::Vector4f uniformHemisphere(const Eigen::Vector4f& normal);
 public:
     std::mt19937 gen;

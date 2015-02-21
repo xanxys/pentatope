@@ -7,6 +7,7 @@
 #include <Eigen/Dense>
 #include <glog/logging.h>
 #include <opencv2/opencv.hpp>
+#include <unistd.h>
 
 #include <camera.h>
 #include <loader.h>
@@ -15,6 +16,8 @@
 
 using namespace pentatope;
 
+// Since there is a python frontend for pentatope binary,
+// error messages can be unhelpful to reduce code clutter.
 int main(int argc, char** argv) {
     using boost::program_options::notify;
     using boost::program_options::options_description;
@@ -29,7 +32,8 @@ int main(int argc, char** argv) {
     options_description desc("Renderer for 4-d space");
     desc.add_options()
         ("help", "show this message")
-        ("render", value<std::string>(), "run given RenderTask (either text or binary)");
+        ("render", value<std::string>(), "run given RenderTask (either text or binary)")
+        ("max-threads", value<int>(), "Maximum number of worker threads (default: nproc).");
     variables_map vars;
     store(parse_command_line(argc, argv, desc), vars);
     notify(vars);
@@ -45,9 +49,19 @@ int main(int argc, char** argv) {
         const auto sample_per_px = std::get<2>(task);
         const auto output_path = std::get<3>(task);
 
+        // Calculate number of threads to use.
+        int n_threads = sysconf(_SC_NPROCESSORS_ONLN);
+        if(vars.count("max-threads") > 0) {
+            const int max_threads = vars["max-threads"].as<int>();
+            CHECK_GT(max_threads, 0) << "Need a positive number of cores to proceed";
+            n_threads = std::min(max_threads, n_threads);
+        }
+        LOG(INFO) << "Using #threads=" << n_threads;
+
         LOG(INFO) << "Starting task";
         Sampler sampler;
-        cv::Mat result = camera->render(*scene, sampler, sample_per_px);
+        cv::Mat result = camera->render(*scene, sampler,
+            sample_per_px, n_threads);
         LOG(INFO) << "Writing render result to " << output_path;
         cv::imwrite(output_path, result);
     } else {
