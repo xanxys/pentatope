@@ -2,15 +2,19 @@
 import os
 Import('proto_files_cc')
 
-if os.path.exists('/usr/bin/clang++'):
-    compiler = 'clang++'
+debug = int(ARGUMENTS.get('debug', 1))
+
+cc_flags = ["-O3"]
+if debug:
+    cc_flags.append("-g")
+    cc_flags.append("-DDEBUG")
 else:
-    compiler = 'g++'
+    cc_flags.append("-DNDEBUG")
 
 env = Environment(
-    CXX=compiler,
+    CXX='clang++',
     CXXFLAGS='-std=c++14 -Wall -Wextra',
-    CCFLAGS=['-O3', '-g'],
+    CCFLAGS=cc_flags,
     CPPPATH=[
         '/usr/include/eigen3',
         './',
@@ -18,7 +22,6 @@ env = Environment(
     LIBPATH=[
     ],
     CPPDEFINES=[
-        # 'ENABLE_USB_IO'
     ]
     )
 env['ENV']['TERM'] = os.environ.get('TERM', '')
