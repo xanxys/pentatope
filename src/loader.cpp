@@ -81,6 +81,15 @@ std::unique_ptr<Scene> createCornellTesseract() {
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0.5, 0.1, 0.5), 0.5)),
         std::unique_ptr<Material>(new GlassMaterial(1.5))
         );
+
+    scene.objects.emplace_back(
+        std::unique_ptr<Geometry>(new OBB(
+            Pose(),
+            Eigen::Vector4f(0.4, 0.4, 0.4, 0.8))),
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1))));
+
+            // new GlassMaterial(1.6))); // error
+
     // light at center of ceiling
     /*
     scene.objects.emplace_back(
