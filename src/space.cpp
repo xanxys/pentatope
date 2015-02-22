@@ -1,5 +1,7 @@
 #include "space.h"
 
+#include <Eigen/LU>
+
 namespace pentatope {
 
 physics_error::physics_error(const std::string& what) :
@@ -19,6 +21,13 @@ Eigen::Transform<float, 4, Eigen::Affine> Pose::asAffine() const {
     return pose;
 }
 
+Eigen::Transform<float, 4, Eigen::Affine> Pose::asInverseAffine() const {
+
+    Eigen::Transform<float, 4, Eigen::Affine> inv;
+    inv.linear() = pose.linear().inverse().eval();
+    inv.translation() = -(inv.linear() * pose.translation());
+    return inv;
+}
 
 Ray::Ray(Eigen::Vector4f origin, Eigen::Vector4f direction) :
     origin(origin), direction(direction) {

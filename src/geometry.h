@@ -68,4 +68,16 @@ private:
     float d;
 };
 
+// A bounded rotated cuboid.
+class OBB : public Geometry {
+public:
+    OBB(const Pose& pose, const Eigen::Vector4f& size);
+
+    boost::optional<MicroGeometry>
+        intersect(const Ray& ray) const override;
+private:
+    Pose pose;
+    Eigen::Vector4f half_size;
 };
+
+}  // namespace

@@ -35,6 +35,7 @@ public:
     Pose(const Eigen::Matrix4f& rot, const Eigen::Vector4f& trans);
 
     Eigen::Transform<float, 4, Eigen::Affine> asAffine() const;
+    Eigen::Transform<float, 4, Eigen::Affine> asInverseAffine() const;
 private:
     Eigen::Transform<float, 4, Eigen::Affine> pose;
 };
