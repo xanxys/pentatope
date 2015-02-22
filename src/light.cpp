@@ -57,6 +57,7 @@ RefractiveBTDF::RefractiveBTDF(
 boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
         RefractiveBTDF::specular(const Eigen::Vector4f& dir_out) const {
     const float dout_cos = geom.normal().dot(dir_out);
+    assert(-1 <= dout_cos && dout_cos <= 1);
     // almost parallel to normal.
     if(std::abs(dout_cos) >= 1 - 1e-3) {
         return boost::optional<std::pair<Eigen::Vector4f, Spectrum>>(
@@ -65,6 +66,7 @@ boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
 
     // Non-parallel: use Snell's law.
     const float dout_sin = std::sqrt(1 - std::pow(dout_cos, 2));
+    assert(0 <= dout_sin && dout_sin <= 1);
 
     // entering vs leaving.
     const float rri = (dout_cos > 0) ? refractive_index : 1 / refractive_index;
@@ -74,7 +76,18 @@ boost::optional<std::pair<Eigen::Vector4f, Spectrum>>
     dout_perp.normalize();
 
     const float din_sin = dout_sin / rri;
+    // handle total internal reflection
+    if(din_sin > 1) {
+        return boost::optional<std::pair<Eigen::Vector4f, Spectrum>>(
+            std::make_pair(
+                dout_proj * dout_cos - dout_perp * dout_sin,
+                Spectrum::Ones()));
+    }
+
+    // normal refraction
     const float din_cos = std::sqrt(1 - std::pow(din_sin, 2));
+    assert(0 <= din_sin && din_sin <= 1);
+    assert(0 <= din_cos && din_cos <= 1);
     return boost::optional<std::pair<Eigen::Vector4f, Spectrum>>(
         std::make_pair(
             -dout_proj * din_cos - dout_perp * din_sin,

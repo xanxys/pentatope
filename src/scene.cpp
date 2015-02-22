@@ -63,7 +63,7 @@ Spectrum Scene::trace(const Ray& ray, Sampler& sampler, int depth) const {
                     trace(new_ray, sampler, depth - 1)) +
                 o_bsdf->emission(-ray.direction);
         } else {
-            const auto dir = sampler.uniformHemisphere(mg.normal());;
+            const auto dir = sampler.uniformHemisphere(mg.normal());
             // avoid self-intersection by offseting origin.
             Ray new_ray(mg.pos() + epsilon * dir, dir);
             return
