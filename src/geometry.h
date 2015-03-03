@@ -6,6 +6,8 @@
 // Remeber, all surface is 3-d and all volume is 4-d.
 #pragma once
 
+#include <array>
+
 #include <boost/optional.hpp>
 #include <Eigen/Dense>
 
@@ -78,6 +80,18 @@ public:
 private:
     Pose pose;
     Eigen::Vector4f half_size;
+};
+
+
+// Basic element of a surface.
+class Tetrahedron : public Geometry {
+public:
+    Tetrahedron(const std::array<Eigen::Vector4f, 4>& vertices);
+
+    boost::optional<MicroGeometry>
+        intersect(const Ray& ray) const override;
+private:
+    std::array<Eigen::Vector4f, 4> vertices;
 };
 
 }  // namespace

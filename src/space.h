@@ -1,5 +1,7 @@
 // Defines mathematical constructs for 4-d space, such
-// as poses and rays. Don't put radiometry stuff here.
+// as poses and rays. Also linear algebra stuff
+// useful in 4-d space.
+// Don't put radiometry stuff here.
 #pragma once
 
 #include <stdexcept>
@@ -53,5 +55,15 @@ public:
     const Eigen::Vector4f origin;
     const Eigen::Vector4f direction;
 };
+
+
+// Returns a vector that is perpendicular to
+// any of given vectors.
+// In other words, *(v0 ∧ v1 ∧ v2).
+// n.b. results is not normalized.
+Eigen::Vector4f cross(
+    const Eigen::Vector4f& v0,
+    const Eigen::Vector4f& v1,
+    const Eigen::Vector4f& v2);
 
 };

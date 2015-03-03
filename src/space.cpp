@@ -1,5 +1,6 @@
 #include "space.h"
 
+#include <boost/range/irange.hpp>
 #include <Eigen/LU>
 
 namespace pentatope {
@@ -39,6 +40,32 @@ Eigen::Vector4f Ray::at(float t) const {
 
 float Ray::at(const Eigen::Vector4f& pos) const {
     return (pos - origin).dot(direction);
+}
+
+
+// See https://ef.gy/linear-algebra:normal-vectors-in-higher-dimensional-spaces
+Eigen::Vector4f cross(
+        const Eigen::Vector4f& v0,
+        const Eigen::Vector4f& v1,
+        const Eigen::Vector4f& v2) {
+    Eigen::Vector4f result;
+    for(const int i : boost::irange(0, 4)) {
+        // det| v0 v1 v2 (e0 e1 e2 e3)^t| = result
+        Eigen::Matrix3f m;
+        int pack_index = 0;
+        for(const int j : boost::irange(0, 4)) {
+            if(i == j) {
+                continue;
+            }
+            m(pack_index, 0) = v0(j);
+            m(pack_index, 1) = v1(j);
+            m(pack_index, 2) = v2(j);
+            pack_index++;
+        }
+        const float sign = (i % 2 == 0) ? 1 : -1;
+        result(i) = sign * m.determinant();
+    }
+    return result;
 }
 
 };

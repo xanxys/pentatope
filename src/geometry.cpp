@@ -169,4 +169,51 @@ boost::optional<MicroGeometry>
     }
 }
 
+
+Tetrahedron::Tetrahedron(
+        const std::array<Eigen::Vector4f, 4>& vertices) :
+        vertices(vertices) {
+}
+
+boost::optional<MicroGeometry>
+        Tetrahedron::intersect(const Ray& ray) const {
+    // v0 + (v1 - v0)t1 + (v2 - v0)t2 + (v3 - v0)t3 = o + dt
+    // reorganaize it.
+    // |v1-v0 v2-v0 v3-v0 -d| (t1 t2 t3 t)^t = o - v0
+    Eigen::Matrix4f m;
+    Eigen::Vector4f v;
+    m.col(0) = vertices[1] - vertices[0];
+    m.col(1) = vertices[2] - vertices[0];
+    m.col(2) = vertices[3] - vertices[0];
+    m.col(3) = -ray.direction;
+    v = ray.origin - vertices[0];
+    if(std::abs(m.determinant()) < 1e-6) {
+        // degenerate -> ray is parallel to tetrahedron, or
+        // tetrahedron itself is degenerate.
+        return boost::none;
+    }
+    // Reject false intersections.
+    const Eigen::Vector4f params = m.inverse() * v;
+    for(const int i : boost::irange(0, 4)) {
+        if(params(i) < 0) {
+            return boost::none;
+        }
+    }
+    if(params(0) + params(1) + params(2) > 1) {
+        return boost::none;
+    }
+    Eigen::Vector4f n = cross(
+        vertices[1] - vertices[0],
+        vertices[2] - vertices[0],
+        vertices[3] - vertices[0]);
+    n.normalize();
+    if(ray.direction.dot(n) > 0) {
+        n *= -1;
+    }
+    return MicroGeometry(
+        ray.at(params(3)),
+        n);
+}
+
+
 };
