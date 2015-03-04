@@ -19,6 +19,9 @@ message RenderTask {
 
     // Output file path. Should be full path.
     optional string output_path = 4;
+
+    // All objects and lights, including materials.
+    optional RenderScene scene = 5;
 }
 
 // A camera type, pose, blur, tonemap, output image format, etc.
@@ -58,4 +61,25 @@ message RigidTransform {
 
     // 4-element translation vector.
     repeated float translation = 2 [packed=true];
+}
+
+// Scene contains objects and lights.
+// Objects can be emissive, but they are not as fast as lights.
+message RenderScene {
+    repeated SceneObject objects = 1;
+    repeated SceneLight lights = 2;
+}
+
+message SceneObject {
+    optional ObjectGeometry geometry = 1;
+    optional ObjectMaterial material = 2;
+}
+
+message SceneLight {
+}
+
+message ObjectGeometry {
+}
+
+message ObjectMaterial {
 }
