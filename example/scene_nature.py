@@ -10,10 +10,10 @@ import multiprocessing
 import cv2
 import scipy.ndimage
 sys.path.append('build/proto')
-from render_task_pb2 import *
+import render_task_pb2 as proto
 
 
-def generate_fractal_noise(size):
+def generate_fractal_noise(size, deterministic=False):
     """
     * size: tuple of int, length in each dimension
     Generate perlin-like fractal noise.
@@ -23,6 +23,9 @@ def generate_fractal_noise(size):
     n_octaves = int(math.ceil(math.log(max(size), 2)))
     internal_size1 = 2 ** n_octaves
     assert(0 < max(size) <= internal_size1)
+
+    if deterministic:
+        np.random.seed(1)
 
     img = np.zeros((internal_size1,) * ndim)
     for i in range(n_octaves):
@@ -36,6 +39,41 @@ def generate_fractal_noise(size):
     return img[[slice(0, s) for s in size]]
 
 
+def add_land(scene):
+    """
+    * scene: proto.RenderScene
+    Add land objects.
+    """
+    n = 20
+
+    img = generate_fractal_noise([n, n, n], deterministic=True)
+    # Normalize to [0, 1].
+    v_min = np.min(img)
+    v_max = np.max(img)
+    img = (img - v_min)  / (v_max - v_min)
+    # Generate OBBs.
+    grid_size = 1.0
+    for ix in range(n - 1):
+        for iy in range(n - 1):
+            for iz in range(n - 1):
+                p_base_center = np.array([ix, iy, iz, 0]) * grid_size
+                height = img[ix, iy, iz]
+
+                aabb_center = p_base_center + np.array([0, 0, 0, height / 2])
+                aabb_size = np.array([grid_size, grid_size, grid_size, height])
+                # Create an object as a new element in the scene.
+                obj = scene.objects.add()
+                geom = obj.geometry
+                # Populate a geometry.
+                geom.type = proto.ObjectGeometry.OBB
+                obb = geom.Extensions[proto.OBBGeometry.geom]
+                obb.rotation.extend(list(np.eye(4).flatten()))
+                obb.translation.extend(list(aabb_center))
+                obb.size.extend(list(aabb_size))
+                # Populate Material.
+                material = obj.material
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""
@@ -44,11 +82,8 @@ Generate a scene containing a fractal landscape and trees.""",
 
     args = parser.parse_args()
 
-    img = generate_fractal_noise([100, 100])
+    scene = proto.RenderScene()
+    add_land(scene)
 
-
-    # Nomalize
-    v_min = np.min(img)
-    v_max = np.max(img)
-    img = (img - v_min) * 255 / (v_max - v_min)
-    cv2.imwrite("test.png", img)
+    with open("scene.pb", "wb") as f_scene:
+        f_scene.write(scene.SerializeToString())

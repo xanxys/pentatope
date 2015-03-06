@@ -78,8 +78,29 @@ message SceneObject {
 message SceneLight {
 }
 
+// ObjectGeometry uses extensions to emulate polymorphism.
 message ObjectGeometry {
+    enum GeometryType {
+        OBB = 1;
+    }
+    extensions 100 to max;
+
+    required GeometryType type = 1;
 }
+
+extend ObjectGeometry {
+    optional OBBGeometry geom = 100;
+}
+
+message OBBGeometry {
+    // Placement of AABB in the world coodinates.
+    repeated float rotation = 1 [packed=true];
+    repeated float translation = 2 [packed=true];
+
+    // 4-element for size of each axis in local coodinates.
+    repeated float size = 3 [packed=true];
+}
+
 
 message ObjectMaterial {
 }
