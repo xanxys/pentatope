@@ -1,6 +1,10 @@
-build/
+# Build related
 .sconsign.dblite
+build/
+*.pyc
+# Sublime project
 *.sublime-workspace
 *.sublime-project
-*.png
+# Render intermediate files
 *.pb
+*.png
