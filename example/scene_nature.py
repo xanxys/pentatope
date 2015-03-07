@@ -47,10 +47,10 @@ def add_land(scene):
     n = 20
 
     img = generate_fractal_noise([n, n, n], deterministic=True)
-    # Normalize to [0, 1].
+    # Normalize to [1, 2].
     v_min = np.min(img)
     v_max = np.max(img)
-    img = (img - v_min)  / (v_max - v_min)
+    img = (img - v_min)  / (v_max - v_min) + 1.0
     # Generate OBBs.
     grid_size = 1.0
     for ix in range(n - 1):
