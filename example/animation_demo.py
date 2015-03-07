@@ -59,6 +59,11 @@ Generate a scene containing a fractal landscape and trees.""",
     pos_t = np.dot(stage_to_world, pos0)
     l_to_w_t = np.dot(stage_to_world, local_to_stage)
 
+    task.camera.camera_type = "perspective2"
+    task.camera.size_x = 640
+    task.camera.size_y = 480
+    task.camera.fov_x = 157
+    task.camera.fov_y = 150
     task.camera.local_to_world.rotation.extend(list(l_to_w_t.flatten()))
     task.camera.local_to_world.translation.extend(list(pos_t))
 
