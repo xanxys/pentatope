@@ -31,6 +31,8 @@ std::unique_ptr<Scene> createCornellTesseract();
 // http://stackoverflow.com/a/2602060
 std::string readFile(const std::string& path);
 
+std::unique_ptr<Scene> loadScene(const RenderScene& rs);
+
 std::unique_ptr<Scene> loadSceneFromRenderTask(const RenderTask& rt);
 
 // Parse RigidTransform.

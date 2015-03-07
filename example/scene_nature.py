@@ -66,9 +66,9 @@ def add_land(scene):
                 geom = obj.geometry
                 # Populate a geometry.
                 geom.type = proto.ObjectGeometry.OBB
-                obb = geom.Extensions[proto.geom]
-                obb.rotation.extend(list(np.eye(4).flatten()))
-                obb.translation.extend(list(aabb_center))
+                obb = geom.Extensions[proto.OBBGeometry.geom]
+                obb.local_to_world.rotation.extend(list(np.eye(4).flatten()))
+                obb.local_to_world.translation.extend(list(aabb_center))
                 obb.size.extend(list(aabb_size))
                 # Populate Material.
                 material = obj.material

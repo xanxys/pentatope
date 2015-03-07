@@ -126,6 +126,51 @@ std::string readFile(const std::string& path) {
     return str;
 }
 
+std::unique_ptr<Scene> loadScene(const RenderScene& rs) {
+    std::unique_ptr<Scene> scene_p(new Scene(fromRgb(0, 0, 0)));
+    Scene& scene = *scene_p;
+    for(const auto& object : rs.objects()) {
+        // Load geometry.
+        std::unique_ptr<Geometry> geom;
+        if(!object.has_geometry()) {
+            throw invalid_task("Object requires geometry.");
+        }
+        if(object.geometry().type() == ObjectGeometry::OBB) {
+            const OBBGeometry& obb =
+                object.geometry().GetExtension(OBBGeometry::geom);
+            if(!obb.has_local_to_world()) {
+                throw invalid_task("OBB requires local_to_world");
+            }
+            if(obb.size_size() != 4) {
+                throw invalid_task("size must be 4-dimensional");
+            }
+            Eigen::Vector4f size;
+            const auto size_elements = obb.size();
+            for(const int ix : boost::irange(0, 4)) {
+                size(ix) = size_elements.Get(ix);
+                if(size(ix) <= 0) {
+                    throw invalid_task("Size must be positive");
+                }
+            }
+            geom.reset(
+                new OBB(
+                    loadPoseFromRigidTransform(obb.local_to_world()),
+                    size));
+        } else {
+            throw invalid_task("Unknown geometry type");
+        }
+        // Load material.
+        std::unique_ptr<Material> material(
+            new UniformLambertMaterial(fromRgb(1, 1, 1)));
+        // Construct and append object.
+        assert(geom);
+        assert(material);
+        scene.objects.emplace_back(
+            std::move(geom), std::move(material));
+    }
+    return scene_p;
+}
+
 std::unique_ptr<Scene> loadSceneFromRenderTask(const RenderTask& rt) {
     std::unique_ptr<Scene> scene;
     if(rt.has_scene_name()) {
@@ -135,9 +180,11 @@ std::unique_ptr<Scene> loadSceneFromRenderTask(const RenderTask& rt) {
             throw invalid_task(
                 "Unknown scene name: " + rt.scene_name());
         }
+    } else if(rt.has_scene()) {
+        scene = loadScene(rt.scene());
     } else {
         throw invalid_task(
-            "Scene specification in prototxt is not supported yet");
+            "Scene specification not found");
     }
     assert(scene);
     return scene;

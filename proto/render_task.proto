@@ -88,14 +88,12 @@ message ObjectGeometry {
     required GeometryType type = 1;
 }
 
-extend ObjectGeometry {
-    optional OBBGeometry geom = 100;
-}
-
 message OBBGeometry {
+    extend ObjectGeometry {
+        optional OBBGeometry geom = 100;
+    }
     // Placement of AABB in the world coodinates.
-    repeated float rotation = 1 [packed=true];
-    repeated float translation = 2 [packed=true];
+    optional RigidTransform local_to_world = 1;
 
     // 4-element for size of each axis in local coodinates.
     repeated float size = 3 [packed=true];
