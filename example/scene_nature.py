@@ -44,7 +44,7 @@ def add_land(scene):
     * scene: proto.RenderScene
     Add land objects.
     """
-    n = 20
+    n = 5
 
     img = generate_fractal_noise([n, n, n], deterministic=True)
     # Normalize to [1, 2].
@@ -74,6 +74,11 @@ def add_land(scene):
                 material = obj.material
 
 
+def add_landscape(scene):
+    """
+    Add everything (trees, lands, lights) to scene.
+    """
+    add_land(scene)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""

@@ -15,6 +15,8 @@ if __name__ == '__main__':
 Generate a scene containing a fractal landscape and trees.""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    test_mode = True
+
     args = parser.parse_args()
 
     task = proto.RenderTask()
@@ -60,15 +62,21 @@ Generate a scene containing a fractal landscape and trees.""",
     l_to_w_t = np.dot(stage_to_world, local_to_stage)
 
     task.camera.camera_type = "perspective2"
-    task.camera.size_x = 640
-    task.camera.size_y = 480
-    task.camera.fov_x = 157
-    task.camera.fov_y = 150
+    if test_mode:
+        task.camera.size_x = 100
+        task.camera.size_y = 100
+        task.camera.fov_x = 100
+        task.camera.fov_y = 100
+    else:
+        task.camera.size_x = 640
+        task.camera.size_y = 480
+        task.camera.fov_x = 157
+        task.camera.fov_y = 150
     task.camera.local_to_world.rotation.extend(list(l_to_w_t.flatten()))
     task.camera.local_to_world.translation.extend(list(pos_t))
 
     scene = task.scene
-    scene_nature.add_land(scene)
+    scene_nature.add_landscape(scene)
 
     with open("task.pb", "wb") as f_task:
         f_task.write(task.SerializeToString())
