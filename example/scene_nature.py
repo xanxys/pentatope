@@ -81,6 +81,12 @@ def add_landscape(scene):
     add_land(scene)
 
     light = scene.lights.add()
+    light.type = proto.SceneLight.POINT
+    point_light = light.Extensions[proto.PointLightProto.light]
+    point_light.translation.extend([0, 0, 0, 15])
+    point_light.power.r = 1000
+    point_light.power.g = 1000
+    point_light.power.b = 1000
 
 
 
