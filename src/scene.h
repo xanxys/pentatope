@@ -14,6 +14,10 @@
 
 namespace pentatope {
 
+using Object = std::pair<
+    std::unique_ptr<Geometry>,
+    std::unique_ptr<Material>>;
+
 // Complete collection of visually relevant things.
 // Provides radiance interface (trace) externally.
 class Scene {
@@ -48,9 +52,7 @@ public:
     bool isVisibleFrom(
 		const Eigen::Vector4f& from, const Eigen::Vector4f& to) const;
 public:
-    std::vector<std::pair<
-        std::unique_ptr<Geometry>,
-        std::unique_ptr<Material>>> objects;
+    std::vector<Object> objects;
     std::vector<std::unique_ptr<Light>> lights;
     Spectrum background_radiance;
 };

@@ -79,6 +79,11 @@ def add_landscape(scene):
     Add everything (trees, lands, lights) to scene.
     """
     add_land(scene)
+
+    light = scene.lights.add()
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""

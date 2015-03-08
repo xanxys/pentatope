@@ -31,6 +31,12 @@ std::unique_ptr<Scene> createCornellTesseract();
 // http://stackoverflow.com/a/2602060
 std::string readFile(const std::string& path);
 
+Spectrum loadSpectrum(const SpectrumProto& sp);
+
+Object loadObject(const SceneObject& so);
+
+std::unique_ptr<Light> loadLight(const SceneLight& sl);
+
 std::unique_ptr<Scene> loadScene(const RenderScene& rs);
 
 std::unique_ptr<Scene> loadSceneFromRenderTask(const RenderTask& rt);

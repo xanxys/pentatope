@@ -1,3 +1,7 @@
+// Append "Proto" if a message collides with a class.
+// Do use different name if the responsibility is slightly different
+// between a message vs. a class, but don't be too clever to
+// avoid collision.
 package pentatope;
 
 // A description of rendering a single frame.
@@ -63,6 +67,14 @@ message RigidTransform {
     repeated float translation = 2 [packed=true];
 }
 
+message SpectrumProto {
+    // Color values in RGB space.
+    // not well-defined.
+    optional float r = 1;
+    optional float g = 2;
+    optional float b = 3;
+}
+
 // Scene contains objects and lights.
 // Objects can be emissive, but they are not as fast as lights.
 message RenderScene {
@@ -73,9 +85,6 @@ message RenderScene {
 message SceneObject {
     optional ObjectGeometry geometry = 1;
     optional ObjectMaterial material = 2;
-}
-
-message SceneLight {
 }
 
 // ObjectGeometry uses extensions to emulate polymorphism.
@@ -101,4 +110,25 @@ message OBBGeometry {
 
 
 message ObjectMaterial {
+}
+
+
+message SceneLight {
+    enum LightType {
+        POINT = 1;
+    }
+    extensions 100 to max;
+
+    required LightType type = 1;
+}
+
+message PointLightProto {
+    extend SceneLight {
+        optional PointLightProto light = 100;
+    }
+    // Location of the point light.
+    repeated float translation = 1 [packed=true];
+
+    // Total power of the point light.
+    optional SpectrumProto power = 2;
 }

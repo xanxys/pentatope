@@ -126,47 +126,83 @@ std::string readFile(const std::string& path) {
     return str;
 }
 
+Spectrum loadSpectrum(const SpectrumProto& sp) {
+    if(!sp.has_r() || !sp.has_g() || !sp.has_b()) {
+        throw invalid_task("Spectrum requires r, g, b");
+    }
+    return fromRgb(sp.r(), sp.g(), sp.b());
+}
+
+Object loadObject(const SceneObject& object) {
+    // Load geometry.
+    std::unique_ptr<Geometry> geom;
+    if(!object.has_geometry()) {
+        throw invalid_task("Object requires geometry.");
+    }
+    if(object.geometry().type() == ObjectGeometry::OBB) {
+        const OBBGeometry& obb =
+            object.geometry().GetExtension(OBBGeometry::geom);
+        if(!obb.has_local_to_world()) {
+            throw invalid_task("OBB requires local_to_world");
+        }
+        if(obb.size_size() != 4) {
+            throw invalid_task("size must be 4-dimensional");
+        }
+        Eigen::Vector4f size;
+        const auto size_elements = obb.size();
+        for(const int ix : boost::irange(0, 4)) {
+            size(ix) = size_elements.Get(ix);
+            if(size(ix) <= 0) {
+                throw invalid_task("Size must be positive");
+            }
+        }
+        geom.reset(
+            new OBB(
+                loadPoseFromRigidTransform(obb.local_to_world()),
+                size));
+    } else {
+        throw invalid_task("Unknown geometry type");
+    }
+    // Load material.
+    std::unique_ptr<Material> material(
+        new UniformLambertMaterial(fromRgb(1, 1, 1)));
+    // Construct and append object.
+    assert(geom);
+    assert(material);
+    return std::make_pair(
+        std::move(geom), std::move(material));
+}
+
+std::unique_ptr<Light> loadLight(const SceneLight& light_proto) {
+    std::unique_ptr<Light> light;
+    if(light_proto.type() == SceneLight::POINT) {
+        const PointLightProto& point_light =
+            light_proto.GetExtension(PointLightProto::light);
+        if(point_light.translation_size() != 4) {
+            throw invalid_task("PointLight translation must be 4-dimensional");
+        }
+        if(!point_light.has_power()) {
+            throw invalid_task("PointLight requires power specification");
+        }
+        Eigen::Vector4f trans;
+        for(const int ix : boost::irange(0, 4)) {
+            trans(ix) = point_light.translation().Get(ix);
+        }
+        return std::make_unique<PointLight>(
+            trans, loadSpectrum(point_light.power()));
+    } else {
+        throw invalid_task("Unknown light type");
+    }
+}
+
 std::unique_ptr<Scene> loadScene(const RenderScene& rs) {
     std::unique_ptr<Scene> scene_p(new Scene(fromRgb(0, 0, 0)));
     Scene& scene = *scene_p;
     for(const auto& object : rs.objects()) {
-        // Load geometry.
-        std::unique_ptr<Geometry> geom;
-        if(!object.has_geometry()) {
-            throw invalid_task("Object requires geometry.");
-        }
-        if(object.geometry().type() == ObjectGeometry::OBB) {
-            const OBBGeometry& obb =
-                object.geometry().GetExtension(OBBGeometry::geom);
-            if(!obb.has_local_to_world()) {
-                throw invalid_task("OBB requires local_to_world");
-            }
-            if(obb.size_size() != 4) {
-                throw invalid_task("size must be 4-dimensional");
-            }
-            Eigen::Vector4f size;
-            const auto size_elements = obb.size();
-            for(const int ix : boost::irange(0, 4)) {
-                size(ix) = size_elements.Get(ix);
-                if(size(ix) <= 0) {
-                    throw invalid_task("Size must be positive");
-                }
-            }
-            geom.reset(
-                new OBB(
-                    loadPoseFromRigidTransform(obb.local_to_world()),
-                    size));
-        } else {
-            throw invalid_task("Unknown geometry type");
-        }
-        // Load material.
-        std::unique_ptr<Material> material(
-            new UniformLambertMaterial(fromRgb(1, 1, 1)));
-        // Construct and append object.
-        assert(geom);
-        assert(material);
-        scene.objects.emplace_back(
-            std::move(geom), std::move(material));
+        scene.objects.emplace_back(loadObject(object));
+    }
+    for(const auto& light_proto : rs.lights()) {
+        scene.lights.push_back(loadLight(light_proto));
     }
     return scene_p;
 }
