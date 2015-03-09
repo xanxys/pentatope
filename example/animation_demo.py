@@ -14,13 +14,16 @@ if __name__ == '__main__':
         description="""
 Generate a scene containing a fractal landscape and trees.""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    test_mode = True
-
+    parser.add_argument(
+        '--test', action='store_true',
+        help='Lower sample/px and smaller resolution for quick testing.')
     args = parser.parse_args()
 
     task = proto.RenderTask()
-    task.sample_per_pixel = 100
+    if args.test:
+        task.sample_per_pixel = 100
+    else:
+        task.sample_per_pixel = 250
     task.output_path = "./demo-frame.png"
 
     t = 0
@@ -62,16 +65,14 @@ Generate a scene containing a fractal landscape and trees.""",
     l_to_w_t = np.dot(stage_to_world, local_to_stage)
 
     task.camera.camera_type = "perspective2"
-    if test_mode:
-        task.camera.size_x = 100
-        task.camera.size_y = 100
-        task.camera.fov_x = 100
-        task.camera.fov_y = 100
+    if args.test:
+        task.camera.size_x = 160
+        task.camera.size_y = 120
     else:
         task.camera.size_x = 640
         task.camera.size_y = 480
-        task.camera.fov_x = 157
-        task.camera.fov_y = 150
+    task.camera.fov_x = 157
+    task.camera.fov_y = 150
     task.camera.local_to_world.rotation.extend(list(l_to_w_t.flatten()))
     task.camera.local_to_world.translation.extend(list(pos_t))
 
