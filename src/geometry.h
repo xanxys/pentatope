@@ -37,6 +37,9 @@ private:
 };
 
 
+class AABB;
+
+
 // Definition of shape in 4-d space.
 class Geometry {
 public:
@@ -68,6 +71,19 @@ public:
 private:
     Eigen::Vector4f normal;
     float d;
+};
+
+
+// An axis-aligned bounding box.
+class AABB : public Geometry {
+public:
+    AABB(const Eigen::Vector4f& vmin, const Eigen::Vector4f& vmax);
+
+    boost::optional<MicroGeometry>
+        intersect(const Ray& ray) const override;
+private:
+    Eigen::Vector4f vmin;
+    Eigen::Vector4f vmax;
 };
 
 // A bounded rotated cuboid.

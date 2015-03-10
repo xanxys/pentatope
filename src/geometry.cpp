@@ -77,6 +77,88 @@ boost::optional<MicroGeometry>
 }
 
 
+AABB::AABB(const Eigen::Vector4f& vmin, const Eigen::Vector4f& vmax) :
+        vmin(vmin), vmax(vmax) {
+}
+
+boost::optional<MicroGeometry>
+        AABB::intersect(const Ray& ray) const {
+    // OBB is an intersection of 8 half-spaces, 2 for
+    // each axis.
+    float min_t = std::numeric_limits<float>::max();
+    Eigen::Vector4f min_normal;
+    for(int i : boost::irange(0, 4)) {
+        // Check two planes' t. (positive and negative)
+        Eigen::Vector4f normal = Eigen::Vector4f::Zero();
+        normal(i) = 1;
+        const float perp_dir = normal.dot(ray.direction);
+        if(perp_dir == 0) {
+            continue;
+        }
+
+        //  neg     pos
+        //  |        |  ----> perp_dir > 0
+        //  |        |  <---- perp_dir < 0
+        //
+        // hit point on the positive/negative plane
+        // must also be within the OBB boundary.
+        // Conjecture:
+        // OBB boundary test will never make a 2nd hit plane a
+        // 1st hit.
+        const float t_org = normal.dot(ray.origin);
+        const float t_neg = (vmin(i) - t_org) / perp_dir;
+        const float t_pos = (vmax(i) - t_org) / perp_dir;
+
+        float t_cand;
+        Eigen::Vector4f normal_cand;
+        if(perp_dir > 0) {
+            assert(t_neg < t_pos);
+            if(0 >= t_pos) {
+                continue;
+            } else if(0 >= t_neg) {
+                t_cand = t_pos;
+                normal_cand = normal;
+            } else {
+                t_cand = t_neg;
+                normal_cand = -normal;
+            }
+        } else {
+            assert(t_neg > t_pos);
+            if(0 >= t_pos) {
+                continue;
+            } else if(0 >= t_neg) {
+                t_cand = t_neg;
+                normal_cand = -normal;
+            } else {
+                t_cand = t_pos;
+                normal_cand = -normal;
+            }
+        }
+        const auto pos_cand = ray.at(t_cand);
+        bool within_boundary = true;
+        for(const int axis : boost::irange(0, 4)) {
+            // Avoid instability.
+            if(i == axis) {
+                continue;
+            }
+            within_boundary &= (vmin(axis) <= pos_cand(axis));
+            within_boundary &= (pos_cand(axis) <= vmax(axis));
+        }
+        if(within_boundary && min_t > t_cand) {
+            min_t = t_cand;
+            min_normal = normal_cand;
+        }
+    }
+    assert(min_t > 0);
+
+    if(min_t == std::numeric_limits<float>::max()) {
+        return boost::none;
+    } else {
+        return MicroGeometry(ray.at(min_t), min_normal);
+    }
+}
+
+
 OBB::OBB(const Pose& pose, const Eigen::Vector4f& size) :
         pose(pose), half_size(size / 2) {
     if(size(0) <= 0 || size(1) <= 0 || size(2) <= 0 || size(3) <= 0) {
