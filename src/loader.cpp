@@ -243,6 +243,7 @@ std::unique_ptr<Scene> loadSceneFromRenderTask(const RenderTask& rt) {
             "Scene specification not found");
     }
     assert(scene);
+    scene->finalize();
     return scene;
 }
 

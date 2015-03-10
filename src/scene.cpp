@@ -5,8 +5,43 @@
 
 namespace pentatope {
 
+void BruteForceAccel::build(
+        const std::vector<Object>& objects) {
+    for(const auto& object : objects) {
+        object_refs.push_back(object);
+    }
+}
+
+std::pair<std::unique_ptr<BSDF>, MicroGeometry>
+        BruteForceAccel::intersect(const Ray& ray) const {
+    float t_min = std::numeric_limits<float>::max();
+    std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
+
+    for(const auto object : object_refs) {
+        auto isect = object.get().first->intersect(ray);
+        if(!isect) {
+            continue;
+        }
+        const float t = ray.at(isect->pos());
+        if(t < t_min) {
+            isect_nearest.first.reset(
+                object.get().second->getBSDF(*isect).release());
+            isect_nearest.second = *isect;
+            t_min = t;
+        }
+    }
+    return isect_nearest;
+}
+
+
 Scene::Scene(const Spectrum& background_radiance) :
         background_radiance(background_radiance) {
+}
+
+void Scene::finalize() {
+    accel.reset(
+        new BruteForceAccel());
+    accel->build(objects);
 }
 
 // std::unique_ptr is not nullptr if valid, otherwise invalid
@@ -20,23 +55,8 @@ Scene::Scene(const Spectrum& background_radiance) :
 // that's why I'm stuck with this interface.
 std::pair<std::unique_ptr<BSDF>, MicroGeometry>
         Scene::intersect(const Ray& ray) const {
-    float t_min = std::numeric_limits<float>::max();
-    std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
-
-    for(const auto& object : objects) {
-        auto isect = object.first->intersect(ray);
-        if(!isect) {
-            continue;
-        }
-        const float t = ray.at(isect->pos());
-        if(t < t_min) {
-            isect_nearest.first.reset(
-                object.second->getBSDF(*isect).release());
-            isect_nearest.second = *isect;
-            t_min = t;
-        }
-    }
-    return isect_nearest;
+    assert(accel);
+    return accel->intersect(ray);
 }
 
 // Samples radiance L(ray.origin, -ray.direction) by
