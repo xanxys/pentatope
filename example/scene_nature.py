@@ -51,7 +51,7 @@ def add_land(scene):
     # Normalize to [1, 2].
     v_min = np.min(img)
     v_max = np.max(img)
-    img = (img - v_min)  / (v_max - v_min) + 1.0
+    img = (img - v_min) / (v_max - v_min) + 1.0
     # Generate OBBs.
     grid_size = land_size / n
     offset = -np.array([1, 1, 1, 0]) * land_size / 2
@@ -74,6 +74,12 @@ def add_land(scene):
                 obb.size.extend(list(aabb_size))
                 # Populate Material.
                 material = obj.material
+                material.type = proto.ObjectMaterial.UNIFORM_LAMBERT
+                lambert = material.Extensions[
+                    proto.UniformLambertMaterialProto.material]
+                lambert.reflectance.r = 1
+                lambert.reflectance.g = 1
+                lambert.reflectance.b = 1
 
 
 def add_landscape(scene):
@@ -89,7 +95,6 @@ def add_landscape(scene):
     point_light.power.r = 1000
     point_light.power.g = 1000
     point_light.power.b = 1000
-
 
 
 if __name__ == '__main__':

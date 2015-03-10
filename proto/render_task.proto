@@ -110,6 +110,21 @@ message OBBGeometry {
 
 
 message ObjectMaterial {
+    enum MaterialType {
+        UNIFORM_LAMBERT = 1;
+    }
+    extensions 100 to max;
+
+    required MaterialType type = 1;
+}
+
+message UniformLambertMaterialProto {
+    extend ObjectMaterial {
+        optional UniformLambertMaterialProto material = 100;
+    }
+
+    // Reflectance in [0, 1].
+    optional SpectrumProto reflectance = 1;
 }
 
 

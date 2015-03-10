@@ -164,8 +164,28 @@ Object loadObject(const SceneObject& object) {
         throw invalid_task("Unknown geometry type");
     }
     // Load material.
-    std::unique_ptr<Material> material(
-        new UniformLambertMaterial(fromRgb(1, 1, 1)));
+    std::unique_ptr<Material> material;
+    if(!object.has_material()) {
+        throw invalid_task("Object requires material.");
+    }
+    if(object.material().type() == ObjectMaterial::UNIFORM_LAMBERT) {
+        const UniformLambertMaterialProto& material_proto =
+            object.material().GetExtension(
+                UniformLambertMaterialProto::material);
+        if(!material_proto.has_reflectance()) {
+            throw invalid_task("UniformLambertMaterial requires reflectance.");
+        }
+        const Spectrum reflectance = loadSpectrum(material_proto.reflectance());
+
+        if(!reflectance.allFinite() ||
+                reflectance.minCoeff() < 0 ||
+                reflectance.maxCoeff() > 1) {
+            throw invalid_task("Reflectance must be within 0 and 1.");
+        }
+        material.reset(new UniformLambertMaterial(reflectance));
+    } else {
+        throw invalid_task("Unknown material type");
+    }
     // Construct and append object.
     assert(geom);
     assert(material);
