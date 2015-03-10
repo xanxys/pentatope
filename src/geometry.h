@@ -44,6 +44,7 @@ class AABB;
 class Geometry {
 public:
     virtual boost::optional<MicroGeometry> intersect(const Ray& ray) const = 0;
+    virtual AABB bounds() const = 0;
 };
 
 
@@ -53,6 +54,8 @@ public:
 
     boost::optional<MicroGeometry>
         intersect(const Ray& ray) const override;
+
+    AABB bounds() const override;
 private:
     const Eigen::Vector4f center;
     const float radius;
@@ -68,6 +71,8 @@ public:
 
     boost::optional<MicroGeometry>
         intersect(const Ray& ray) const override;
+
+    AABB bounds() const override;
 private:
     Eigen::Vector4f normal;
     float d;
@@ -79,8 +84,13 @@ class AABB : public Geometry {
 public:
     AABB(const Eigen::Vector4f& vmin, const Eigen::Vector4f& vmax);
 
+    // Create an AABB from vertices of a convex.
+    static AABB fromConvexVertices(const std::vector<Eigen::Vector4f>& vertices);
+
     boost::optional<MicroGeometry>
         intersect(const Ray& ray) const override;
+
+    AABB bounds() const override;
 private:
     Eigen::Vector4f vmin;
     Eigen::Vector4f vmax;
@@ -93,6 +103,8 @@ public:
 
     boost::optional<MicroGeometry>
         intersect(const Ray& ray) const override;
+
+    AABB bounds() const override;
 private:
     Pose pose;
     Eigen::Vector4f half_size;
@@ -106,6 +118,8 @@ public:
 
     boost::optional<MicroGeometry>
         intersect(const Ray& ray) const override;
+
+    AABB bounds() const override;
 private:
     std::array<Eigen::Vector4f, 4> vertices;
 };

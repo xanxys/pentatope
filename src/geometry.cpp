@@ -54,6 +54,12 @@ boost::optional<MicroGeometry>
     return MicroGeometry(p, (p - center).normalized());
 }
 
+AABB Sphere::bounds() const {
+    return AABB(
+        center - Eigen::Vector4f(radius, radius, radius, radius),
+        center + Eigen::Vector4f(radius, radius, radius, radius));
+}
+
 
 Plane::Plane(const Eigen::Vector4f& normal, float d) :
         normal(normal), d(d) {
@@ -76,9 +82,32 @@ boost::optional<MicroGeometry>
         (perp_dir > 0) ? static_cast<Eigen::Vector4f>(-normal) : normal);
 }
 
+AABB Plane::bounds() const {
+    const float l = std::numeric_limits<float>::lowest();
+    const float m = std::numeric_limits<float>::max();
+    return AABB(
+        Eigen::Vector4f(l, l, l, l),
+        Eigen::Vector4f(m, m, m, m));
+}
+
 
 AABB::AABB(const Eigen::Vector4f& vmin, const Eigen::Vector4f& vmax) :
         vmin(vmin), vmax(vmax) {
+}
+
+AABB AABB::fromConvexVertices(const std::vector<Eigen::Vector4f>& vertices) {
+    assert(!vertices.empty());
+
+    const float l = std::numeric_limits<float>::lowest();
+    const float m = std::numeric_limits<float>::max();
+    Eigen::Vector4f vmin(m, m, m, m);
+    Eigen::Vector4f vmax(l, l, l, l);
+
+    for(const auto& vertex : vertices) {
+        vmin = vmin.cwiseMin(vertex);
+        vmax = vmax.cwiseMax(vertex);
+    }
+    return AABB(vmin, vmax);
 }
 
 boost::optional<MicroGeometry>
@@ -156,6 +185,10 @@ boost::optional<MicroGeometry>
     } else {
         return MicroGeometry(ray.at(min_t), min_normal);
     }
+}
+
+AABB AABB::bounds() const {
+    return AABB(*this);
 }
 
 
@@ -251,6 +284,20 @@ boost::optional<MicroGeometry>
     }
 }
 
+AABB OBB::bounds() const {
+    std::vector<Eigen::Vector4f> vs;
+    vs.reserve(16);
+    for(const int i_vertex : boost::irange(0, 16)) {
+        const Eigen::Vector4f vertex_local(
+            (i_vertex & 0b0001) ? -half_size(0) : half_size(0),
+            (i_vertex & 0b0010) ? -half_size(1) : half_size(1),
+            (i_vertex & 0b0100) ? -half_size(2) : half_size(2),
+            (i_vertex & 0b1000) ? -half_size(3) : half_size(3));
+        vs.emplace_back(pose.asAffine() * vertex_local);
+    }
+    return AABB::fromConvexVertices(vs);
+}
+
 
 Tetrahedron::Tetrahedron(
         const std::array<Eigen::Vector4f, 4>& vertices) :
@@ -297,5 +344,9 @@ boost::optional<MicroGeometry>
         n);
 }
 
+AABB Tetrahedron::bounds() const {
+    std::vector<Eigen::Vector4f> vs(vertices.begin(), vertices.end());
+    return AABB::fromConvexVertices(vs);
+}
 
 };
