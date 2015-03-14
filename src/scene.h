@@ -73,6 +73,9 @@ private:
         const std::vector<
             std::reference_wrapper<const Object>>& objects) const;
 
+    std::pair<std::unique_ptr<BSDF>, MicroGeometry>
+        intersectTree(const BVHNode& node, const Ray& ray) const;
+
     std::unique_ptr<BVHNode> root;
 };
 

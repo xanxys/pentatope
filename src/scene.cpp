@@ -112,6 +112,56 @@ std::unique_ptr<BVHAccel::BVHNode> BVHAccel::buildTree(
 
 std::pair<std::unique_ptr<BSDF>, MicroGeometry>
         BVHAccel::intersect(const Ray& ray) const {
+    if(!root) {
+        return std::make_pair(nullptr, MicroGeometry());
+    }
+    return intersectTree(*root, ray);
+}
+
+std::pair<std::unique_ptr<BSDF>, MicroGeometry>
+        BVHAccel::intersectTree(const BVHNode& node, const Ray& ray) const {
+    if(!node.aabb.intersect(ray)) {
+        return std::make_pair(nullptr, MicroGeometry());
+    }
+    if(!node.objects.empty()) {
+        // leaf
+        float t_min = std::numeric_limits<float>::max();
+        std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
+        for(const auto object : node.objects) {
+            auto isect = object.get().first->intersect(ray);
+            if(!isect) {
+                continue;
+            }
+            const float t = ray.at(isect->pos());
+            if(t < t_min) {
+                isect_nearest.first.reset(
+                    object.get().second->getBSDF(*isect).release());
+                isect_nearest.second = *isect;
+                t_min = t;
+            }
+        }
+        return isect_nearest;
+    } else {
+        // branch
+        assert(node.left && node.right);
+        auto isect_left = intersectTree(*node.left, ray);
+        auto isect_right = intersectTree(*node.right, ray);
+        if(isect_left.first && isect_right.first) {
+            const float t_left = ray.at(isect_left.second.pos());
+            const float t_right = ray.at(isect_right.second.pos());
+            if(t_left < t_right) {
+                return isect_left;
+            } else {
+                return isect_right;
+            }
+        } else if(isect_left.first) {
+            return isect_left;
+        } else if(isect_right.first) {
+            return isect_right;
+        } else {
+            return std::make_pair(nullptr, MicroGeometry());
+        }
+    }
 }
 
 BVHAccel::BVHNode::BVHNode() :
