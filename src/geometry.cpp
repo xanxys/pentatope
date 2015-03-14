@@ -95,6 +95,21 @@ AABB::AABB(const Eigen::Vector4f& vmin, const Eigen::Vector4f& vmax) :
         vmin(vmin), vmax(vmax) {
 }
 
+AABB AABB::fromAABBs(const std::vector<AABB>& aabbs) {
+    assert(!aabbs.empty());
+
+    const float l = std::numeric_limits<float>::lowest();
+    const float m = std::numeric_limits<float>::max();
+    Eigen::Vector4f vmin(m, m, m, m);
+    Eigen::Vector4f vmax(l, l, l, l);
+
+    for(const auto& aabb : aabbs) {
+        vmin = vmin.cwiseMin(aabb.vmin);
+        vmax = vmax.cwiseMax(aabb.vmax);
+    }
+    return AABB(vmin, vmax);
+}
+
 AABB AABB::fromConvexVertices(const std::vector<Eigen::Vector4f>& vertices) {
     assert(!vertices.empty());
 
@@ -189,6 +204,23 @@ boost::optional<MicroGeometry>
 
 AABB AABB::bounds() const {
     return AABB(*this);
+}
+
+Eigen::Vector4f AABB::size() const {
+    return vmax - vmin;
+}
+
+Eigen::Vector4f AABB::center() const {
+    return (vmin + vmax) / 2;
+}
+
+Eigen::Vector4f AABB::min() const {
+    return vmin;
+
+}
+
+Eigen::Vector4f AABB::max() const {
+    return vmax;
 }
 
 

@@ -84,6 +84,8 @@ class AABB : public Geometry {
 public:
     AABB(const Eigen::Vector4f& vmin, const Eigen::Vector4f& vmax);
 
+    static AABB fromAABBs(const std::vector<AABB>& aabbs);
+
     // Create an AABB from vertices of a convex.
     static AABB fromConvexVertices(const std::vector<Eigen::Vector4f>& vertices);
 
@@ -91,6 +93,13 @@ public:
         intersect(const Ray& ray) const override;
 
     AABB bounds() const override;
+
+    // Accessors.
+    Eigen::Vector4f size() const;
+    Eigen::Vector4f center() const;
+
+    Eigen::Vector4f min() const;
+    Eigen::Vector4f max() const;
 private:
     Eigen::Vector4f vmin;
     Eigen::Vector4f vmax;

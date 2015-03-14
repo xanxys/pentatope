@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <random>
 
+#include <boost/range/irange.hpp>
+#include <glog/logging.h>
+
 namespace pentatope {
 
 void BruteForceAccel::build(
@@ -31,6 +34,88 @@ std::pair<std::unique_ptr<BSDF>, MicroGeometry>
         }
     }
     return isect_nearest;
+}
+
+
+void BVHAccel::build(const std::vector<Object>& objects) {
+    if(objects.empty()) {
+        root.release();
+    } else {
+        std::vector<std::reference_wrapper<const Object>>
+            object_refs;
+        for(const auto& object : objects) {
+            object_refs.push_back(object);
+        }
+        root = buildTree(object_refs);
+    }
+}
+
+std::unique_ptr<BVHAccel::BVHNode> BVHAccel::buildTree(
+        const std::vector<
+            std::reference_wrapper<const Object>>& objects) const {
+    const int minimum_objects_per_node = 3;
+    assert(!objects.empty());
+    // Calculate all AABBs and their union.
+    std::vector<AABB> aabbs;
+    for(const auto& object : objects) {
+        aabbs.push_back(object.get().first->bounds());
+    }
+    const auto aabb_whole = AABB::fromAABBs(aabbs);
+    auto node = std::make_unique<BVHNode>();
+    node->aabb = aabb_whole;
+    // Create a leaf when object is few.
+    if(objects.size() <= minimum_objects_per_node) {
+        for(const auto& object : objects) {
+            node->objects.push_back(object);
+        }
+        return node;
+    }
+    // Otherwise, create a branch.
+    float longest_size = 0;
+    int longest_axis = -1;
+    for(const int axis : boost::irange(0, 4)) {
+        const float size = aabb_whole.size()(axis);
+        if(size > longest_size) {
+            longest_size = size;
+            longest_axis = axis;
+        }
+    }
+    assert(longest_axis >= 0);
+    const float midpoint = aabb_whole.center()(longest_axis);
+    // Partition objects by comparing centroids of objects
+    // with midpoint of the chosen axis.
+    std::vector<
+        std::reference_wrapper<const Object>> children0;
+    std::vector<
+        std::reference_wrapper<const Object>> children1;
+    for(const auto obj_ref : objects) {
+        if(obj_ref.get().first->bounds().center()(longest_axis)
+                < midpoint) {
+            children0.push_back(obj_ref);
+        } else {
+            children1.push_back(obj_ref);
+        }
+    }
+    if(!children0.empty() && !children1.empty()) {
+        node->left = buildTree(children0);
+        node->right = buildTree(children1);
+        return node;
+    }
+    LOG(WARNING) << "Biased BVH tree; expect poor performance n=" << objects.size();
+    // Create a leaf in a pathological case.
+    // TODO: better handling
+    for(const auto& object : objects) {
+        node->objects.push_back(object);
+    }
+    return node;
+}
+
+std::pair<std::unique_ptr<BSDF>, MicroGeometry>
+        BVHAccel::intersect(const Ray& ray) const {
+}
+
+BVHAccel::BVHNode::BVHNode() :
+    aabb(Eigen::Vector4f::Zero(), Eigen::Vector4f::Zero()) {
 }
 
 

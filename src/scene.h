@@ -42,30 +42,40 @@ private:
     std::vector<std::reference_wrapper<const Object>> object_refs;
 };
 
-/*
+
 // Ray intersection accelerator using bounding volume
 // hierarchy.
+// See http://www.win.tue.nl/~hermanh/stack/bvh.pdf
 class BVHAccel : public Accel {
 public:
-    BVHAccel(const std::vector<Object>& objects) override;
+    void build(const std::vector<Object>& objects) override;
     std::pair<std::unique_ptr<BSDF>, MicroGeometry>
             intersect(const Ray& ray) const override;
 private:
     class BVHNode {
     public:
-        Eigen::Vector4f aabb_min;
-        Eigen::Vector4f aabb_max;
+        // Create an invalid node.
+        BVHNode();
 
+        AABB aabb;
+
+        // Only populated when this node is a branch.
         std::unique_ptr<BVHNode> left;
         std::unique_ptr<BVHNode> right;
 
         // borrowed
-        std::vector<Object&> objects;
+        // empty -> this node is a branch (left && right)
+        // non-empty -> this node is a leaf
+        std::vector<std::reference_wrapper<const Object>> objects;
     };
+
+    std::unique_ptr<BVHNode> buildTree(
+        const std::vector<
+            std::reference_wrapper<const Object>>& objects) const;
 
     std::unique_ptr<BVHNode> root;
 };
-*/
+
 
 // Complete collection of visually relevant things.
 // Provides radiance interface (trace) externally.
