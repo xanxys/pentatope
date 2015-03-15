@@ -174,8 +174,7 @@ Scene::Scene(const Spectrum& background_radiance) :
 }
 
 void Scene::finalize() {
-    accel.reset(
-        new BruteForceAccel());
+    accel.reset(new BVHAccel());
     accel->build(objects);
 }
 
