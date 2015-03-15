@@ -4,6 +4,46 @@
 
 #include <gtest/gtest.h>
 
+TEST(AABB, IntersectionOutGoing) {
+    const pentatope::AABB aabb(
+        Eigen::Vector4f(0, 0, 0, 0), Eigen::Vector4f(1, 1, 1, 1));
+
+    {
+        const pentatope::Ray ray(
+            Eigen::Vector4f(0.5, 0.5, 0.5, 0.5),
+            Eigen::Vector4f(1, 0, 0, 0));
+        const auto isect = aabb.intersect(ray);
+        EXPECT_TRUE(isect);
+        EXPECT_EQ(
+            Eigen::Vector4f(1, 0.5, 0.5, 0.5),
+            isect->pos());
+        EXPECT_EQ(
+            Eigen::Vector4f(1, 0, 0, 0), // outward pointing
+            isect->normal());
+    }
+
+}
+
+TEST(OBB, IntersectionOutGoing) {
+    const pentatope::OBB obb(
+        pentatope::Pose(),
+        Eigen::Vector4f(1, 1, 1, 1));
+
+    {
+        const pentatope::Ray ray(
+            Eigen::Vector4f(0, 0, 0, 0),
+            Eigen::Vector4f(1, 0, 0, 0));
+        const auto isect = obb.intersect(ray);
+        EXPECT_TRUE(isect);
+        EXPECT_EQ(
+            Eigen::Vector4f(0.5, 0, 0, 0),
+            isect->pos());
+        EXPECT_EQ(
+            Eigen::Vector4f(1, 0, 0, 0), // outward pointing
+            isect->normal());
+    }
+}
+
 TEST(OBB, IntersectionAtOriginXDir) {
     const pentatope::OBB obb(pentatope::Pose(), Eigen::Vector4f(1, 1, 1, 1));
 
