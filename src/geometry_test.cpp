@@ -10,10 +10,11 @@
 
 
 TEST(AABB, IntersectionOutGoing) {
-    const pentatope::AABB aabb(
-        Eigen::Vector4f(0, 0, 0, 0), Eigen::Vector4f(1, 1, 1, 1));
+    std::mt19937 rg;
 
     {
+        const pentatope::AABB aabb(
+            Eigen::Vector4f(0, 0, 0, 0), Eigen::Vector4f(1, 1, 1, 1));
         const pentatope::Ray ray(
             Eigen::Vector4f(0.5, 0.5, 0.5, 0.5),
             Eigen::Vector4f(1, 0, 0, 0));
@@ -27,6 +28,48 @@ TEST(AABB, IntersectionOutGoing) {
             isect->normal());
     }
 
+    // A case encountered in debugging #7
+    {
+        const pentatope::AABB aabb(
+            Eigen::Vector4f(-200, -200, -200, -200),
+            Eigen::Vector4f(200, 200, 200, 200));
+        const pentatope::Ray ray(
+            Eigen::Vector4f(-16.9445, 3.52139, 83.1682, 96.4669),
+            Eigen::Vector4f(-0.536506, 0.13881, -0.466949, -0.689095));
+        const auto isect = aabb.intersect(ray);
+        EXPECT_TRUE(isect);
+    }
+
+    // Check arbitrary rays whose origin is inside an AABB.
+    // All of them must intersect with AABBs.
+    for(const int i : boost::irange(0, 100)) {
+        const Eigen::Vector4f vmin(
+            std::uniform_real_distribution<float>(-100, 100)(rg),
+            std::uniform_real_distribution<float>(-100, 100)(rg),
+            std::uniform_real_distribution<float>(-100, 100)(rg),
+            std::uniform_real_distribution<float>(-100, 100)(rg));
+        const Eigen::Vector4f size(
+            std::uniform_real_distribution<float>(0, 100)(rg),
+            std::uniform_real_distribution<float>(0, 100)(rg),
+            std::uniform_real_distribution<float>(0, 100)(rg),
+            std::uniform_real_distribution<float>(0, 100)(rg));
+
+        const pentatope::AABB aabb(vmin, vmin + size);
+        const Eigen::Vector4f org =
+            vmin + size.cwiseProduct(Eigen::Vector4f(
+                std::uniform_real_distribution<float>(0, 1)(rg),
+                std::uniform_real_distribution<float>(0, 1)(rg),
+                std::uniform_real_distribution<float>(0, 1)(rg),
+                std::uniform_real_distribution<float>(0, 1)(rg)));
+        Eigen::Vector4f dir(
+            std::uniform_real_distribution<float>(-1, 1)(rg),
+            std::uniform_real_distribution<float>(-1, 1)(rg),
+            std::uniform_real_distribution<float>(-1, 1)(rg),
+            std::uniform_real_distribution<float>(-1, 1)(rg));
+        dir.normalize();
+        const pentatope::Ray ray(org, dir);
+        EXPECT_TRUE(aabb.intersect(ray));
+    }
 }
 
 TEST(OBB, IntersectionOutGoing) {

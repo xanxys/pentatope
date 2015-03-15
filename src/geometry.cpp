@@ -130,15 +130,15 @@ AABB AABB::fromConvexVertices(const std::vector<Eigen::Vector4f>& vertices) {
 
 boost::optional<MicroGeometry>
         AABB::intersect(const Ray& ray) const {
-    // OBB is an intersection of 8 half-spaces, 2 for
+    // AABB is an intersection of 8 half-spaces, 2 for
     // each axis.
-    float min_t = std::numeric_limits<float>::max();
-    Eigen::Vector4f min_normal;
+    std::pair<float, Eigen::Vector4f> min_t_n;
+    min_t_n.first = std::numeric_limits<float>::max();
     for(int i : boost::irange(0, 4)) {
         // Check two planes' t. (positive and negative)
         Eigen::Vector4f normal = Eigen::Vector4f::Zero();
         normal(i) = 1;
-        const float perp_dir = normal.dot(ray.direction);
+        const float perp_dir = ray.direction(i);
         if(perp_dir == 0) {
             continue;
         }
@@ -148,60 +148,40 @@ boost::optional<MicroGeometry>
         //  |        |  <---- perp_dir < 0
         //
         // hit point on the positive/negative plane
-        // must also be within the OBB boundary.
-        // Conjecture:
-        // OBB boundary test will never make a 2nd hit plane a
-        // 1st hit.
-        const float t_org = normal.dot(ray.origin);
+        // must also be within the AABB boundary.
+        const float t_org = ray.origin(i);
         const float t_neg = (vmin(i) - t_org) / perp_dir;
         const float t_pos = (vmax(i) - t_org) / perp_dir;
 
-        float t_cand;
-        Eigen::Vector4f normal_cand;
-        if(perp_dir > 0) {
-            assert(t_neg < t_pos);
-            if(0 >= t_pos) {
-                continue;
-            } else if(0 >= t_neg) {
-                t_cand = t_pos;
-                normal_cand = normal;
-            } else {
-                t_cand = t_neg;
-                normal_cand = -normal;
-            }
-        } else {
-            assert(t_neg > t_pos);
-            if(0 >= t_pos) {
-                continue;
-            } else if(0 >= t_neg) {
-                t_cand = t_neg;
-                normal_cand = -normal;
-            } else {
-                t_cand = t_pos;
-                normal_cand = -normal;
-            }
+        std::vector<std::pair<float, Eigen::Vector4f>> t_n_cands;  // t and normal
+        if(t_neg > 0) {
+            t_n_cands.emplace_back(t_neg, -normal);
         }
-        const auto pos_cand = ray.at(t_cand);
-        bool within_boundary = true;
-        for(const int axis : boost::irange(0, 4)) {
-            // Avoid instability.
-            if(i == axis) {
-                continue;
-            }
-            within_boundary &= (vmin(axis) <= pos_cand(axis));
-            within_boundary &= (pos_cand(axis) <= vmax(axis));
+        if(t_pos > 0) {
+            t_n_cands.emplace_back(t_pos, normal);
         }
-        if(within_boundary && min_t > t_cand) {
-            min_t = t_cand;
-            min_normal = normal_cand;
+        for(const auto& t_n : t_n_cands) {
+            const auto pos_cand = ray.at(t_n.first);
+            bool within_boundary = true;
+            for(const int axis : boost::irange(0, 4)) {
+                // Avoid instability.
+                if(i == axis) {
+                    continue;
+                }
+                within_boundary &= (vmin(axis) <= pos_cand(axis));
+                within_boundary &= (pos_cand(axis) <= vmax(axis));
+            }
+            if(within_boundary && t_n.first < min_t_n.first) {
+                min_t_n = t_n;
+            }
         }
     }
-    assert(min_t > 0);
+    assert(min_t_n.first > 0);
 
-    if(min_t == std::numeric_limits<float>::max()) {
+    if(min_t_n.first == std::numeric_limits<float>::max()) {
         return boost::none;
     } else {
-        return MicroGeometry(ray.at(min_t), min_normal);
+        return MicroGeometry(ray.at(min_t_n.first), min_t_n.second);
     }
 }
 
@@ -247,19 +227,19 @@ boost::optional<MicroGeometry>
         OBB::intersect(const Ray& ray) const {
     const Eigen::Transform<float, 4, Eigen::Affine> world_to_local =
         pose.asInverseAffine();
+    const Ray ray_local(
+        world_to_local * ray.origin,
+        world_to_local.rotation() * ray.direction);
 
-    const Eigen::Vector4f org_local = world_to_local * ray.origin;
-    const Eigen::Vector4f dir_local = world_to_local.rotation() * ray.direction;
-
-    // OBB is a union of 8 half-spaces, 2 for
+    // AABB is an intersection of 8 half-spaces, 2 for
     // each axis.
-    float min_t = std::numeric_limits<float>::max();
-    Eigen::Vector4f min_normal;
+    std::pair<float, Eigen::Vector4f> min_t_n;
+    min_t_n.first = std::numeric_limits<float>::max();
     for(int i : boost::irange(0, 4)) {
         // Check two planes' t. (positive and negative)
         Eigen::Vector4f normal = Eigen::Vector4f::Zero();
         normal(i) = 1;
-        const float perp_dir = normal.dot(dir_local);
+        const float perp_dir = ray_local.direction(i);
         if(perp_dir == 0) {
             continue;
         }
@@ -270,61 +250,39 @@ boost::optional<MicroGeometry>
         //
         // hit point on the positive/negative plane
         // must also be within the OBB boundary.
-        // Conjecture:
-        // OBB boundary test will never make a 2nd hit plane a
-        // 1st hit.
-        const float t_org = normal.dot(org_local);
+        const float t_org = ray_local.origin(i);
         const float t_neg = (-half_size(i) - t_org) / perp_dir;
         const float t_pos = (half_size(i) - t_org) / perp_dir;
 
-        float t_cand;
-        Eigen::Vector4f normal_cand;
-        if(perp_dir > 0) {
-            assert(t_neg < t_pos);
-            if(0 >= t_pos) {
-                continue;
-            } else if(0 >= t_neg) {
-                t_cand = t_pos;
-                normal_cand = normal;
-            } else {
-                t_cand = t_neg;
-                normal_cand = -normal;
-            }
-        } else {
-            assert(t_neg > t_pos);
-            if(0 >= t_pos) {
-                continue;
-            } else if(0 >= t_neg) {
-                t_cand = t_neg;
-                normal_cand = -normal;
-            } else {
-                t_cand = t_pos;
-                normal_cand = -normal;
-            }
+        std::vector<std::pair<float, Eigen::Vector4f>> t_n_cands;  // t and normal
+        if(t_neg > 0) {
+            t_n_cands.emplace_back(t_neg, -normal);
         }
-        const auto pos_cand = org_local + dir_local * t_cand;
-        bool within_boundary = true;
-        for(const int axis : boost::irange(0, 4)) {
-            // Avoid instability.
-            if(i == axis) {
-                continue;
-            }
-            within_boundary &= (
-                std::abs(pos_cand(axis)) <= half_size(axis));
+        if(t_pos > 0) {
+            t_n_cands.emplace_back(t_pos, normal);
         }
-        if(within_boundary && min_t > t_cand) {
-            min_t = t_cand;
-            min_normal = normal_cand;
+        for(const auto& t_n : t_n_cands) {
+            const auto pos_cand = ray_local.at(t_n.first);
+            bool within_boundary = true;
+            for(const int axis : boost::irange(0, 4)) {
+                // Avoid instability.
+                if(i == axis) {
+                    continue;
+                }
+                within_boundary &= (std::abs(pos_cand(axis)) <= half_size(axis));
+            }
+            if(within_boundary && t_n.first < min_t_n.first) {
+                min_t_n = t_n;
+            }
         }
     }
-    assert(min_t > 0);
+    assert(min_t_n.first > 0);
 
-    if(min_t == std::numeric_limits<float>::max()) {
+    if(min_t_n.first == std::numeric_limits<float>::max()) {
         return boost::none;
     } else {
-        return MicroGeometry(
-            ray.at(min_t),
-            pose.asAffine().rotation() * min_normal);
+        return MicroGeometry(ray.at(min_t_n.first),
+            pose.asAffine().rotation() * min_t_n.second);
     }
 }
 

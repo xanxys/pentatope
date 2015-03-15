@@ -21,20 +21,7 @@ std::pair<std::unique_ptr<BSDF>, MicroGeometry>
     std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
 
     for(const auto object : object_refs) {
-        const bool aabb_isect = object.get().first->bounds().intersect(ray);
         auto isect = object.get().first->intersect(ray);
-        if(isect && !aabb_isect) {
-            LOG(WARNING) << "Discprenacy found" <<
-                "Ray: " << ray.origin << " : " << ray.direction << " / "
-                "AABB: " <<
-                    object.get().first->bounds().min() << " : " <<
-                    object.get().first->bounds().max() << " / ";
-
-            LOG(WARNING) << "Plane normal=" <<
-                dynamic_cast<Plane*>(object.get().first.get())->normal << " / " <<
-                "d=" << dynamic_cast<Plane*>(object.get().first.get())->d;
-
-        }
         if(!isect) {
             continue;
         }
