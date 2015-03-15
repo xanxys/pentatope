@@ -62,10 +62,10 @@ TEST(BVHAccel, OperatesAtLogN) {
     };
 
     // It is expected that BVH performs at O(log(N)) (branching factor=2).
-    const double dt_100 = measure_seconds(100);
-    const double dt_5000 = measure_seconds(5000);
+    const double dt_a = measure_seconds(100);
+    const double dt_b = measure_seconds(5000);
     const double ratio_theoretical = std::log2(5000.0 / 100.0);
-    const double ratio = dt_5000 / dt_100;
+    const double ratio = dt_b / dt_a;
 
     EXPECT_LT(ratio_theoretical / 2, ratio);
     EXPECT_GT(ratio_theoretical * 2, ratio);

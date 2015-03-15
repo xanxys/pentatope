@@ -102,12 +102,26 @@ std::unique_ptr<BVHAccel::BVHNode> BVHAccel::buildTree(
         node->right = buildTree(children1);
         return node;
     }
-    LOG(WARNING) << "Biased BVH tree; expect poor performance n=" << objects.size();
-    // Create a leaf in a pathological case.
-    // TODO: better handling
-    for(const auto obj_ref : objects) {
-        node->objects.push_back(obj_ref);
-    }
+    // Fallback to median splitting.
+    std::vector<std::reference_wrapper<const Object>> children_sorted = objects;
+    std::sort(children_sorted.begin(), children_sorted.end(),
+        [&longest_axis](auto obj0, auto obj1) {
+            return obj0.get().first->bounds().center()(longest_axis) <
+                obj1.get().first->bounds().center()(longest_axis);
+        });
+    const std::size_t n0 = children_sorted.size() / 2;
+    assert(n0 < children_sorted.size());
+    children0.clear();
+    children1.clear();
+    children0.insert(children0.begin(),
+            children_sorted.begin(), children_sorted.begin() + n0);
+    children1.insert(children1.begin(),
+            children_sorted.begin() + n0, children_sorted.end());
+    assert(children0.size() + children1.size() == objects.size());
+    assert(!children0.empty());
+    assert(!children1.empty());
+    node->left = buildTree(children0);
+    node->right = buildTree(children1);
     return node;
 }
 

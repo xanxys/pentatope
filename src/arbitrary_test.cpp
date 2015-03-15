@@ -8,7 +8,7 @@ std::vector<pentatope::Object> arbitraryObjects(std::mt19937& rg, int n_target) 
         (std::uniform_int_distribution<int>(1, 100)(rg));
     std::vector<pentatope::Object> objects;
     for(const int i : boost::irange(0, n)) {
-        if(std::bernoulli_distribution(0.05)(rg)) {
+        if(std::bernoulli_distribution(0.01)(rg)) {
             // Generate a Plane.
             Eigen::Vector4f dir(
                 std::uniform_real_distribution<float>(-1, 1)(rg),
