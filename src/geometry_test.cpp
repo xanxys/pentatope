@@ -133,6 +133,17 @@ TEST(OBB, IntersectionTranslated) {
     }
 }
 
+TEST(Plane, IntersectionOutOfBounds) {
+    const pentatope::Plane plane(
+        Eigen::Vector4f(-0.567885, -0.399743, 0.596379, 0.402548),
+        3.38434);
+    const pentatope::Ray ray(
+        Eigen::Vector4f(-16.9445, 3.52139, 83.1682, 96.4669),
+        Eigen::Vector4f(-0.536506, 0.13881, -0.466949, -0.689095));
+
+    EXPECT_FALSE(plane.intersect(ray));
+}
+
 TEST(Plane, BoundsIsCorrect) {
     std::mt19937 rg;
 

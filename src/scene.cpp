@@ -21,7 +21,20 @@ std::pair<std::unique_ptr<BSDF>, MicroGeometry>
     std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
 
     for(const auto object : object_refs) {
+        const bool aabb_isect = object.get().first->bounds().intersect(ray);
         auto isect = object.get().first->intersect(ray);
+        if(isect && !aabb_isect) {
+            LOG(WARNING) << "Discprenacy found" <<
+                "Ray: " << ray.origin << " : " << ray.direction << " / "
+                "AABB: " <<
+                    object.get().first->bounds().min() << " : " <<
+                    object.get().first->bounds().max() << " / ";
+
+            LOG(WARNING) << "Plane normal=" <<
+                dynamic_cast<Plane*>(object.get().first.get())->normal << " / " <<
+                "d=" << dynamic_cast<Plane*>(object.get().first.get())->d;
+
+        }
         if(!isect) {
             continue;
         }
@@ -65,8 +78,8 @@ std::unique_ptr<BVHAccel::BVHNode> BVHAccel::buildTree(
     node->aabb = aabb_whole;
     // Create a leaf when object is few.
     if(objects.size() <= minimum_objects_per_node) {
-        for(const auto& object : objects) {
-            node->objects.push_back(object);
+        for(const auto obj_ref : objects) {
+            node->objects.push_back(obj_ref);
         }
         return node;
     }
@@ -96,6 +109,7 @@ std::unique_ptr<BVHAccel::BVHNode> BVHAccel::buildTree(
             children1.push_back(obj_ref);
         }
     }
+    assert(children0.size() + children1.size() == objects.size());
     if(!children0.empty() && !children1.empty()) {
         node->left = buildTree(children0);
         node->right = buildTree(children1);
@@ -104,8 +118,8 @@ std::unique_ptr<BVHAccel::BVHNode> BVHAccel::buildTree(
     LOG(WARNING) << "Biased BVH tree; expect poor performance n=" << objects.size();
     // Create a leaf in a pathological case.
     // TODO: better handling
-    for(const auto& object : objects) {
-        node->objects.push_back(object);
+    for(const auto obj_ref : objects) {
+        node->objects.push_back(obj_ref);
     }
     return node;
 }
@@ -125,6 +139,7 @@ std::pair<std::unique_ptr<BSDF>, MicroGeometry>
     }
     if(!node.objects.empty()) {
         // leaf
+        assert(!node.left && !node.right);
         float t_min = std::numeric_limits<float>::max();
         std::pair<std::unique_ptr<BSDF>, MicroGeometry> isect_nearest;
         for(const auto object : node.objects) {

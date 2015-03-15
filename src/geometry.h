@@ -74,7 +74,7 @@ public:
         intersect(const Ray& ray) const override;
 
     AABB bounds() const override;
-private:
+//private:
     Eigen::Vector4f normal;
     float d;
     const float cutoff_radius = 1e2;
