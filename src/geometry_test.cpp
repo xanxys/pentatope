@@ -1,8 +1,13 @@
 #include "geometry.h"
 
 #include <cmath>
+#include <random>
 
+#include <boost/range/irange.hpp>
 #include <gtest/gtest.h>
+
+#include <arbitrary_test.h>
+
 
 TEST(AABB, IntersectionOutGoing) {
     const pentatope::AABB aabb(
@@ -125,5 +130,28 @@ TEST(OBB, IntersectionTranslated) {
 
         const auto rx_pos_isect = obb.intersect(rx_pos);
         EXPECT_FALSE(rx_pos_isect);
+    }
+}
+
+TEST(Plane, BoundsIsCorrect) {
+    std::mt19937 rg;
+
+    for(const int i : boost::irange(0, 100)) {
+        const auto ray = arbitraryRay(rg);
+        Eigen::Vector4f dir(
+            std::uniform_real_distribution<float>(-1, 1)(rg),
+            std::uniform_real_distribution<float>(-1, 1)(rg),
+            std::uniform_real_distribution<float>(-1, 1)(rg),
+            std::uniform_real_distribution<float>(-1, 1)(rg));
+        dir.normalize();
+
+        const pentatope::Plane plane(
+            dir,
+            std::uniform_real_distribution<float>(-100, 100)(rg));
+
+        const auto isect = plane.intersect(ray);
+        if(isect) {
+            EXPECT_TRUE(plane.bounds().contains(isect->pos()));
+        }
     }
 }

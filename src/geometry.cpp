@@ -75,6 +75,9 @@ boost::optional<MicroGeometry>
     if(t <= 0) {
         return boost::none;
     }
+    if(ray.at(t).norm() > cutoff_radius) {
+        return boost::none;
+    }
     // perp_dir > 0: negative side
     // perp_dir < 0: positive side
     return MicroGeometry(
@@ -83,8 +86,8 @@ boost::optional<MicroGeometry>
 }
 
 AABB Plane::bounds() const {
-    const float l = std::numeric_limits<float>::lowest();
-    const float m = std::numeric_limits<float>::max();
+    const float l = -cutoff_radius * 2;
+    const float m = cutoff_radius * 2;
     return AABB(
         Eigen::Vector4f(l, l, l, l),
         Eigen::Vector4f(m, m, m, m));
@@ -204,6 +207,15 @@ boost::optional<MicroGeometry>
 
 AABB AABB::bounds() const {
     return AABB(*this);
+}
+
+bool AABB::contains(const Eigen::Vector4f& point) const {
+    for(const int axis : boost::irange(0, 4)) {
+        if(!(vmin(axis) <= point(axis) && point(axis) <= vmax(axis))) {
+            return false;
+        }
+    }
+    return true;
 }
 
 Eigen::Vector4f AABB::size() const {

@@ -63,6 +63,7 @@ private:
 
 
 // An infinite 4-d plane. Visible from both sides.
+// To make it finite, Plane is cut-off at sphere of cutoff_radius.
 class Plane : public Geometry {
 public:
     // Create a Plane {p | p.dot(normal) == d}.
@@ -76,6 +77,7 @@ public:
 private:
     Eigen::Vector4f normal;
     float d;
+    const float cutoff_radius = 1e2;
 };
 
 
@@ -93,6 +95,9 @@ public:
         intersect(const Ray& ray) const override;
 
     AABB bounds() const override;
+
+    // Query.
+    bool contains(const Eigen::Vector4f& point) const;
 
     // Accessors.
     Eigen::Vector4f size() const;
