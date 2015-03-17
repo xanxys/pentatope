@@ -17,6 +17,12 @@ Generate a scene containing a fractal landscape and trees.""",
     parser.add_argument(
         '--test', action='store_true',
         help='Lower sample/px and smaller resolution for quick testing.')
+    parser.add_argument(
+        '--output', type=str, required=True,
+        help="Output path of RenderTask in .pb.")
+    parser.add_argument(
+        '--render_output', type=str, required=True,
+        help="Deferred output path of rendered image.")
     args = parser.parse_args()
 
     task = proto.RenderTask()
@@ -24,7 +30,7 @@ Generate a scene containing a fractal landscape and trees.""",
         task.sample_per_pixel = 1
     else:
         task.sample_per_pixel = 250
-    task.output_path = "./demo-frame.png"
+    task.output_path = args.render_output
 
     t = 0
     rot_per_sec_xy = 1
@@ -79,5 +85,5 @@ Generate a scene containing a fractal landscape and trees.""",
     scene = task.scene
     scene_nature.add_landscape(scene)
 
-    with open("task.pb", "wb") as f_task:
+    with open(args.output, "wb") as f_task:
         f_task.write(task.SerializeToString())
