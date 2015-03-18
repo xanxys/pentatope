@@ -189,6 +189,14 @@ Scene::Scene(const Spectrum& background_radiance) :
         background_radiance(background_radiance) {
 }
 
+void Scene::addObject(Object object) {
+    objects.push_back(std::move(object));
+}
+
+void Scene::addLight(std::unique_ptr<Light> light) {
+    lights.push_back(std::move(light));
+}
+
 void Scene::finalize() {
     accel.reset(new BVHAccel());
     accel->build(objects);

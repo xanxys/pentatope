@@ -86,6 +86,11 @@ class Scene {
 public:
     Scene(const Spectrum& background_radiance);
 
+    // Insert an Object to the Scene. It cannot be deleted once added.
+    void addObject(Object object);
+    // Insert an Light to the Scene.
+    void addLight(std::unique_ptr<Light> light);
+
     // Create acceleration structure.
     // This must be called for change in objects or lights
     // to take effect. 
@@ -118,10 +123,7 @@ public:
 
     bool isVisibleFrom(
 		const Eigen::Vector4f& from, const Eigen::Vector4f& to) const;
-public:
-    // TODO: prohibit direct access, since
-    // finalize might not work properly.
-    // Especially, deleting elements can result in SEGV.
+private:
     std::vector<Object> objects;
     std::vector<std::unique_ptr<Light>> lights;
     Spectrum background_radiance;

@@ -36,74 +36,63 @@ std::unique_ptr<Scene> createCornellTesseract() {
     // Y-:green Y+:red
     // Z-:yellow Z+:blue
     // floor(W)
-    scene.objects.emplace_back(
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 0)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        );
-    scene.objects.emplace_back(
+        ));
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, -1), -2)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        );
+        ));
     // walls(X)
-    scene.objects.emplace_back(
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(1, 0, 0, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        );
-    scene.objects.emplace_back(
+        ));
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(-1, 0, 0, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        );
+        ));
     // walls(Y)
-    scene.objects.emplace_back(
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 1, 0, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 1, 0)))
-        );
-    scene.objects.emplace_back(
+        ));
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, -1, 0, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 0, 0)))
-        );
+        ));
     // walls(Z)
-    scene.objects.emplace_back(
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 1, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 0)))
-        );
-    scene.objects.emplace_back(
+        ));
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, -1, 0), -1)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 0, 1)))
-        );
+        ));
 
     // object inside room
-    scene.objects.emplace_back(
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 0.2), 0.2)),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        );
-    scene.objects.emplace_back(
+        ));
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0.5, 0.1, 0.5), 0.5)),
         std::unique_ptr<Material>(new GlassMaterial(1.5))
-        );
+        ));
 
     
-    scene.objects.emplace_back(
+    scene.addObject(std::make_pair(
         std::unique_ptr<Geometry>(new OBB(
             Pose(),
             Eigen::Vector4f(0.4, 0.4, 0.4, 0.8))),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1))));
-
-            // new GlassMaterial(1.6))); // error
-    
+        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))));
 
     // light at center of ceiling
-    /*
-    scene.objects.emplace_back(
-        std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 2), 0.5)),
-        std::unique_ptr<Material>(new UniformEmissionMaterial(fromRgb(10, 10, 10)))
-        );
-    */
-    scene.lights.emplace_back(
-        std::unique_ptr<Light>(new PointLight(
+    scene.addLight(std::make_unique<PointLight>(
             Eigen::Vector4f(0, 0, 0, 1.9),
-            fromRgb(100, 100, 100)))
-        );
+            fromRgb(100, 100, 100)));
     return scene_p;
 }
 
@@ -219,10 +208,10 @@ std::unique_ptr<Scene> loadScene(const RenderScene& rs) {
     std::unique_ptr<Scene> scene_p(new Scene(fromRgb(0, 0, 0)));
     Scene& scene = *scene_p;
     for(const auto& object : rs.objects()) {
-        scene.objects.emplace_back(loadObject(object));
+        scene.addObject(loadObject(object));
     }
     for(const auto& light_proto : rs.lights()) {
-        scene.lights.push_back(loadLight(light_proto));
+        scene.addLight(loadLight(light_proto));
     }
     return scene_p;
 }
