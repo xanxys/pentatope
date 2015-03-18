@@ -18,7 +18,12 @@ Camera2::Camera2(Pose pose,
         int width, int height, Radianf fov_x, Radianf fov_y) :
         pose(pose),
         width(width), height(height), fov_x(fov_x), fov_y(fov_y) {
-    // TODO: check fov_x & fov_y errors.
+    if(width < 0 || height < 0) {
+        throw std::runtime_error("Image size must be positive");
+    }
+    if(fov_x < 0 || pi <= fov_x || fov_y < 0 || pi <= fov_y) {
+        throw std::runtime_error("fov_x and fov_y must be within [0, pi)");
+    }
 }
 
 
