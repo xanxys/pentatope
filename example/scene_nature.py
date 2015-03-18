@@ -42,16 +42,16 @@ def generate_fractal_noise(size, deterministic=False):
 def add_land(scene):
     """
     * scene: proto.RenderScene
-    Add land objects in [-10, 10]^3 * [1, 2]
+    Add land objects in [-10, 10]^3 * [1, 5]
     """
-    n = 5
+    n = 10
     land_size = 20
 
     img = generate_fractal_noise([n, n, n], deterministic=True)
     # Normalize to [1, 2].
     v_min = np.min(img)
     v_max = np.max(img)
-    img = (img - v_min) / (v_max - v_min) + 1.0
+    img = (img - v_min) / (v_max - v_min) * 4 + 1.0
     # Generate OBBs.
     grid_size = land_size / n
     offset = -np.array([1, 1, 1, 0]) * land_size / 2
