@@ -110,24 +110,25 @@ void Camera2::renderTile(
         TileSpecifier tile) const {
     assert(tile.dx > 0);
     assert(tile.dy > 0);
+    assert(samples_per_pixel > 0);
     // TODO: use Spectrum array.
     const float c_dx = std::tan(fov_x / 2);
     const float c_dy = std::tan(fov_y / 2);
     const Eigen::Vector4f org_w = pose.asAffine().translation();
     std::uniform_real_distribution<float> px_var(-0.5, 0.5);
-    for(int y = tile.y0; y < tile.y0 + tile.dy; y++) {
-        for(int x = tile.x0; x < tile.x0 + tile.dx; x++) {
-            Eigen::Vector4f dir_c(
-                (((x + px_var(sampler.gen)) * 1.0f / width) - 0.5) * c_dx,
-                (((y + px_var(sampler.gen)) * 1.0f / height) - 0.5) * c_dy,
-                0,
-                1);
-            dir_c.normalize();
-            Eigen::Vector4f dir_w = pose.asAffine().rotation() * dir_c;
-
-            Ray ray(org_w, dir_w);
+    for(const int y : boost::irange(tile.y0,  tile.y0 + tile.dy)) {
+        for(const int x : boost::irange(tile.x0, tile.x0 + tile.dx)) {
             cv::Vec3f accum(0, 0, 0);
-            for(int i = 0; i < samples_per_pixel; i++) {
+            for(const int i : boost::irange(0, samples_per_pixel)) {
+                Eigen::Vector4f dir_c(
+                    (((x + px_var(sampler.gen)) * 1.0f / width) - 0.5) * c_dx,
+                    (((y + px_var(sampler.gen)) * 1.0f / height) - 0.5) * c_dy,
+                    0,
+                    1);
+                dir_c.normalize();
+                Eigen::Vector4f dir_w = pose.asAffine().rotation() * dir_c;
+
+                Ray ray(org_w, dir_w);
                 accum += toCvRgb(scene.trace(ray, sampler, 5));
             }
             film.at<cv::Vec3f>(y, x) = accum / samples_per_pixel;
