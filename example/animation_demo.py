@@ -27,7 +27,7 @@ Generate a scene containing a fractal landscape and trees.""",
 
     task = proto.RenderTask()
     if args.test:
-        task.sample_per_pixel = 1
+        task.sample_per_pixel = 15
     else:
         task.sample_per_pixel = 250
     task.output_path = args.render_output
