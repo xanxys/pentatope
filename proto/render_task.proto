@@ -80,6 +80,9 @@ message SpectrumProto {
 message RenderScene {
     repeated SceneObject objects = 1;
     repeated SceneLight lights = 2;
+
+    // Uniform, background radiance. Assumed 0 if omitted.
+    optional SpectrumProto background_radiance = 3;
 }
 
 message SceneObject {

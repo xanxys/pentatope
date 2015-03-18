@@ -83,7 +83,7 @@ Generate a scene containing a fractal landscape and trees.""",
     task.camera.local_to_world.translation.extend(list(pos_t))
 
     scene = task.scene
-    scene_nature.add_landscape(scene)
+    scene_nature.set_landscape(scene)
 
     with open(args.output, "wb") as f_task:
         f_task.write(task.SerializeToString())

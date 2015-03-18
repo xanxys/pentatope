@@ -82,10 +82,14 @@ def add_land(scene):
                 lambert.reflectance.b = 1
 
 
-def add_landscape(scene):
+def set_landscape(scene):
     """
-    Add everything (trees, lands, lights) to scene.
+    Set everything (trees, lands, lights) to scene.
     """
+    scene.background_radiance.r = 1e-3
+    scene.background_radiance.g = 1e-3
+    scene.background_radiance.b = 1e-3
+
     add_land(scene)
 
     light = scene.lights.add()

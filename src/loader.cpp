@@ -205,7 +205,11 @@ std::unique_ptr<Light> loadLight(const SceneLight& light_proto) {
 }
 
 std::unique_ptr<Scene> loadScene(const RenderScene& rs) {
-    std::unique_ptr<Scene> scene_p(new Scene(fromRgb(0, 0, 0)));
+    Spectrum background(fromRgb(0, 0, 0));
+    if(rs.has_background_radiance()) {
+        background = loadSpectrum(rs.background_radiance());
+    }
+    std::unique_ptr<Scene> scene_p(new Scene(background));
     Scene& scene = *scene_p;
     for(const auto& object : rs.objects()) {
         scene.addObject(loadObject(object));
