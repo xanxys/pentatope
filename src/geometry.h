@@ -121,6 +121,7 @@ public:
     AABB bounds() const override;
 private:
     Pose pose;
+    Eigen::Transform<float, 4, Eigen::Affine> world_to_local;
     Eigen::Vector4f half_size;
 };
 

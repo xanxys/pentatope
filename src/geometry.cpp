@@ -136,33 +136,31 @@ boost::optional<MicroGeometry>
     min_t_n.first = std::numeric_limits<float>::max();
     for(int i : boost::irange(0, 4)) {
         // Check two planes' t. (positive and negative)
-        Eigen::Vector4f normal = Eigen::Vector4f::Zero();
-        normal(i) = 1;
         const float perp_dir = ray.direction(i);
         if(perp_dir == 0) {
             continue;
         }
+        const float inv_perp_dir = 1.0 / perp_dir;
 
         //  neg     pos
-        //  |        |  ----> perp_dir > 0
-        //  |        |  <---- perp_dir < 0
-        //
+        //  |        |
+        //  |        |
+        // vmin    vmax
         // hit point on the positive/negative plane
         // must also be within the AABB boundary.
         const float t_org = ray.origin(i);
-        const float t_neg = (vmin(i) - t_org) / perp_dir;
-        const float t_pos = (vmax(i) - t_org) / perp_dir;
 
-        std::vector<std::pair<float, Eigen::Vector4f>> t_n_cands;  // t and normal
-        if(t_neg > 0) {
-            t_n_cands.emplace_back(t_neg, -normal);
-        }
-        if(t_pos > 0) {
-            t_n_cands.emplace_back(t_pos, normal);
-        }
-        for(const auto& t_n : t_n_cands) {
-            const auto pos_cand = ray.at(t_n.first);
+        for(const bool is_positive : {false, true}) {
+            // Check whether ray can intersect the current side of the plane.
+            const float t = ((is_positive ? vmax(i) : vmin(i)) - t_org) * inv_perp_dir;
+            if(t <= 0) {
+                continue;
+            }
+            // Infinite plane intersects the ray, so proceed to boundary check.
+            Eigen::Vector4f normal = Eigen::Vector4f::Zero();
+            normal(i) = (is_positive ? 1 : -1);
             bool within_boundary = true;
+            const Eigen::Vector4f pos_cand = ray.at(t);
             for(const int axis : boost::irange(0, 4)) {
                 // Avoid instability.
                 if(i == axis) {
@@ -171,8 +169,8 @@ boost::optional<MicroGeometry>
                 within_boundary &= (vmin(axis) <= pos_cand(axis));
                 within_boundary &= (pos_cand(axis) <= vmax(axis));
             }
-            if(within_boundary && t_n.first < min_t_n.first) {
-                min_t_n = t_n;
+            if(within_boundary && t < min_t_n.first) {
+                min_t_n = std::make_pair(t, normal);
             }
         }
     }
@@ -221,12 +219,11 @@ OBB::OBB(const Pose& pose, const Eigen::Vector4f& size) :
     if(size(0) <= 0 || size(1) <= 0 || size(2) <= 0 || size(3) <= 0) {
         throw std::invalid_argument("OBB size must be positive");
     }
+    world_to_local = pose.asInverseAffine();
 }
 
 boost::optional<MicroGeometry>
         OBB::intersect(const Ray& ray) const {
-    const Eigen::Transform<float, 4, Eigen::Affine> world_to_local =
-        pose.asInverseAffine();
     const Ray ray_local(
         world_to_local * ray.origin,
         world_to_local.rotation() * ray.direction);
@@ -237,33 +234,31 @@ boost::optional<MicroGeometry>
     min_t_n.first = std::numeric_limits<float>::max();
     for(int i : boost::irange(0, 4)) {
         // Check two planes' t. (positive and negative)
-        Eigen::Vector4f normal = Eigen::Vector4f::Zero();
-        normal(i) = 1;
         const float perp_dir = ray_local.direction(i);
         if(perp_dir == 0) {
             continue;
         }
+        const float inv_perp_dir = 1.0 / perp_dir;
 
         //  neg     pos
-        //  |        |  ----> perp_dir > 0
-        //  |        |  <---- perp_dir < 0
-        //
+        //  |        |
+        //  |        |
+        // vmin    vmax
         // hit point on the positive/negative plane
-        // must also be within the OBB boundary.
+        // must also be within the AABB boundary.
         const float t_org = ray_local.origin(i);
-        const float t_neg = (-half_size(i) - t_org) / perp_dir;
-        const float t_pos = (half_size(i) - t_org) / perp_dir;
 
-        std::vector<std::pair<float, Eigen::Vector4f>> t_n_cands;  // t and normal
-        if(t_neg > 0) {
-            t_n_cands.emplace_back(t_neg, -normal);
-        }
-        if(t_pos > 0) {
-            t_n_cands.emplace_back(t_pos, normal);
-        }
-        for(const auto& t_n : t_n_cands) {
-            const auto pos_cand = ray_local.at(t_n.first);
+        for(const bool is_positive : {false, true}) {
+            // Check whether ray can intersect the current side of the plane.
+            const float t = ((is_positive ? half_size(i) : -half_size(i)) - t_org) * inv_perp_dir;
+            if(t <= 0) {
+                continue;
+            }
+            // Infinite plane intersects the ray, so proceed to boundary check.
+            Eigen::Vector4f normal = Eigen::Vector4f::Zero();
+            normal(i) = (is_positive ? 1 : -1);
             bool within_boundary = true;
+            const Eigen::Vector4f pos_cand = ray_local.at(t);
             for(const int axis : boost::irange(0, 4)) {
                 // Avoid instability.
                 if(i == axis) {
@@ -271,8 +266,8 @@ boost::optional<MicroGeometry>
                 }
                 within_boundary &= (std::abs(pos_cand(axis)) <= half_size(axis));
             }
-            if(within_boundary && t_n.first < min_t_n.first) {
-                min_t_n = t_n;
+            if(within_boundary && t < min_t_n.first) {
+                min_t_n = std::make_pair(t, normal);
             }
         }
     }
