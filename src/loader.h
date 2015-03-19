@@ -33,6 +33,8 @@ std::string readFile(const std::string& path);
 
 Spectrum loadSpectrum(const SpectrumProto& sp);
 
+Eigen::Vector4f loadPoint(const Point& pt);
+
 Object loadObject(const SceneObject& so);
 
 std::unique_ptr<Light> loadLight(const SceneLight& sl);

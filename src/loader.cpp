@@ -122,6 +122,10 @@ Spectrum loadSpectrum(const SpectrumProto& sp) {
     return fromRgb(sp.r(), sp.g(), sp.b());
 }
 
+Eigen::Vector4f loadPoint(const Point& pt) {
+    return Eigen::Vector4f(pt.x(), pt.y(), pt.z(), pt.w());
+}
+
 Object loadObject(const SceneObject& object) {
     // Load geometry.
     std::unique_ptr<Geometry> geom;
@@ -149,6 +153,17 @@ Object loadObject(const SceneObject& object) {
             new OBB(
                 loadPoseFromRigidTransform(obb.local_to_world()),
                 size));
+    } else if(object.geometry().type() == ObjectGeometry::TETRAHEDRON) {
+        const TetrahedronGeometry& tetra =
+            object.geometry().GetExtension(TetrahedronGeometry::geom);
+        geom.reset(
+            new Tetrahedron(
+                std::array<Eigen::Vector4f, 4>({
+                    loadPoint(tetra.vertex0()),
+                    loadPoint(tetra.vertex1()),
+                    loadPoint(tetra.vertex2()),
+                    loadPoint(tetra.vertex3())
+                })));
     } else {
         throw invalid_task("Unknown geometry type");
     }

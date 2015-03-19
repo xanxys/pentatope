@@ -75,6 +75,14 @@ message SpectrumProto {
     optional float b = 3;
 }
 
+// A point in 4-d space.
+message Point {
+    required float x = 1;
+    required float y = 2;
+    required float z = 3;
+    required float w = 4;
+}
+
 // Scene contains objects and lights.
 // Objects can be emissive, but they are not as fast as lights.
 message RenderScene {
@@ -94,6 +102,7 @@ message SceneObject {
 message ObjectGeometry {
     enum GeometryType {
         OBB = 1;
+        TETRAHEDRON = 2;
     }
     extensions 100 to max;
 
@@ -109,6 +118,16 @@ message OBBGeometry {
 
     // 4-element for size of each axis in local coodinates.
     repeated float size = 3 [packed=true];
+}
+
+message TetrahedronGeometry {
+    extend ObjectGeometry {
+        optional TetrahedronGeometry geom = 101;
+    }
+    required Point vertex0 = 1;
+    required Point vertex1 = 2;
+    required Point vertex2 = 3;
+    required Point vertex3 = 4;
 }
 
 
