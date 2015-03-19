@@ -44,42 +44,57 @@ def add_land(scene):
     * scene: proto.RenderScene
     Add land objects in [-10, 10]^3 * [1, 5]
     """
-    n = 10
+    n = 30
     land_size = 20
 
     img = generate_fractal_noise([n, n, n], deterministic=True)
     # Normalize to [1, 2].
     v_min = np.min(img)
     v_max = np.max(img)
-    img = (img - v_min) / (v_max - v_min) * 4 + 1.0
-    # Generate OBBs.
-    grid_size = land_size / n
-    offset = -np.array([1, 1, 1, 0]) * land_size / 2
-    for ix in range(n - 1):
-        for iy in range(n - 1):
-            for iz in range(n - 1):
-                p_base_center = np.array([ix, iy, iz, 0]) * grid_size + offset
-                height = img[ix, iy, iz]
+    img_w = (img - v_min) / (v_max - v_min) * 4 + 1.0
 
-                aabb_center = p_base_center + np.array([0, 0, 0, height / 2])
-                aabb_size = np.array([grid_size, grid_size, grid_size, height])
-                # Create an object as a new element in the scene.
-                obj = scene.objects.add()
-                geom = obj.geometry
-                # Populate a geometry.
-                geom.type = proto.ObjectGeometry.OBB
-                obb = geom.Extensions[proto.OBBGeometry.geom]
-                obb.local_to_world.rotation.extend(list(np.eye(4).flatten()))
-                obb.local_to_world.translation.extend(list(aabb_center))
-                obb.size.extend(list(aabb_size))
-                # Populate Material.
-                material = obj.material
-                material.type = proto.ObjectMaterial.UNIFORM_LAMBERT
-                lambert = material.Extensions[
-                    proto.UniformLambertMaterialProto.material]
-                lambert.reflectance.r = 1
-                lambert.reflectance.g = 1
-                lambert.reflectance.b = 1
+    img_x, img_y, img_z = land_size * (np.mgrid[0:n, 0:n, 0:n] / n - 0.5)
+    img_pos = np.transpose([img_x, img_y, img_z, img_w], [1, 2, 3, 0])
+
+    # tetrahedron = base triangle + the top vertex
+    # tri0, tri1, tri2 (CCW), top (anti-normal side of the tri)
+    tetrahedrons = [
+        # base tris on Z=0 plane
+        [(0, 0, 0), (1, 0, 0), (1, 1, 0), (1, 0, 1)],
+        [(0, 0, 0), (1, 1, 0), (0, 1, 0), (0, 1, 1)],
+        # base tris on Z=1 plane
+        [(1, 0, 1), (0, 1, 1), (0, 0, 1), (0, 0, 0)],
+        [(1, 0, 1), (1, 1, 1), (0, 1, 1), (1, 1, 0)],
+        # middle
+        [(1, 0, 1), (0, 0, 0), (1, 1, 0), (0, 1, 1)]
+    ]
+
+    # Create 4D membrane by tetrahedrons.
+    for ix in xrange(n - 1):
+        for iy in xrange(n - 1):
+            for iz in xrange(n - 1):
+                for tetra in tetrahedrons:
+                    vs = [img_pos[ix + dx, iy + dy, iz + dz] for (dx, dy, dz) in tetra]
+
+                    # Create an object as a new element in the scene.
+                    obj = scene.objects.add()
+                    geom = obj.geometry
+                    # Populate a geometry.
+                    geom.type = proto.ObjectGeometry.TETRAHEDRON
+                    th = geom.Extensions[proto.TetrahedronGeometry.geom]
+                    for (ref_vertex, val_vertex) in zip([th.vertex0, th.vertex1, th.vertex2, th.vertex3], vs):
+                        ref_vertex.x = val_vertex[0]
+                        ref_vertex.y = val_vertex[1]
+                        ref_vertex.z = val_vertex[2]
+                        ref_vertex.w = val_vertex[3]
+                    # Populate Material.
+                    material = obj.material
+                    material.type = proto.ObjectMaterial.UNIFORM_LAMBERT
+                    lambert = material.Extensions[
+                        proto.UniformLambertMaterialProto.material]
+                    lambert.reflectance.r = 1
+                    lambert.reflectance.g = 1
+                    lambert.reflectance.b = 1
 
 
 def set_landscape(scene):

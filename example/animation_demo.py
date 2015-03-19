@@ -48,7 +48,7 @@ Generate a scene containing a fractal landscape and trees.""",
     # world <- stage
     # lookat (0, 0, 0, 1)
     # by (X,Y) & (X,Z)-rotation
-    pos0 = np.array([0, 0, 0, 3])
+    pos0 = np.array([0, 0, 0, 4])
     # rot_per_sec_xy = 1 / 2
     # rot_per_sec_xz = 1 / 3
     # angle_xy = 2 * math.pi * rot_per_sec_xy * t
