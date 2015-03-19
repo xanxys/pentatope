@@ -92,9 +92,9 @@ def add_land(scene):
                     material.type = proto.ObjectMaterial.UNIFORM_LAMBERT
                     lambert = material.Extensions[
                         proto.UniformLambertMaterialProto.material]
-                    lambert.reflectance.r = 1
-                    lambert.reflectance.g = 1
-                    lambert.reflectance.b = 1
+                    lambert.reflectance.r = 0.3
+                    lambert.reflectance.g = 0.25
+                    lambert.reflectance.b = 0.2
 
 
 def set_landscape(scene):
@@ -103,7 +103,7 @@ def set_landscape(scene):
     """
     scene.background_radiance.r = 1e-3
     scene.background_radiance.g = 1e-3
-    scene.background_radiance.b = 1e-3
+    scene.background_radiance.b = 1.2e-3
 
     add_land(scene)
 
@@ -113,7 +113,7 @@ def set_landscape(scene):
     point_light.translation.extend([0, 0, 0, 15])
     point_light.power.r = 1000
     point_light.power.g = 1000
-    point_light.power.b = 1000
+    point_light.power.b = 1200
 
 
 if __name__ == '__main__':
