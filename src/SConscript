@@ -13,7 +13,7 @@ else:
 
 env = Environment(
     CXX='clang++',
-    CXXFLAGS='-std=c++14 -Wall -Wextra',
+    CXXFLAGS='-std=c++14 -Wall -Wextra -msse -msse2 -msse3 -msse4.1 -mavx -mavx2 -mfma',
     CCFLAGS=cc_flags,
     CPPPATH=[
         '/usr/include/eigen3',
