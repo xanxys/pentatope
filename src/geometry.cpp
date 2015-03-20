@@ -61,12 +61,14 @@ AABB Sphere::bounds() const {
 }
 
 
-Plane::Plane(const Eigen::Vector4f& normal, float d) :
-        normal(normal), d(d) {
+Disc::Disc(const Eigen::Vector4f& center,
+        const Eigen::Vector4f& normal, float radius) :
+        center(center), normal(normal), radius(radius),
+        d(normal.dot(center)) {
 }
 
 boost::optional<MicroGeometry>
-        Plane::intersect(const Ray& ray) const {
+        Disc::intersect(const Ray& ray) const {
     const float perp_dir = normal.dot(ray.direction);
     if(perp_dir == 0) {
         return boost::none;
@@ -75,7 +77,7 @@ boost::optional<MicroGeometry>
     if(t <= 0) {
         return boost::none;
     }
-    if(ray.at(t).norm() > cutoff_radius) {
+    if((ray.at(t) - center).norm() > radius) {
         return boost::none;
     }
     // perp_dir > 0: negative side
@@ -85,12 +87,13 @@ boost::optional<MicroGeometry>
         (perp_dir > 0) ? static_cast<Eigen::Vector4f>(-normal) : normal);
 }
 
-AABB Plane::bounds() const {
-    const float l = -cutoff_radius * 2;
-    const float m = cutoff_radius * 2;
+AABB Disc::bounds() const {
+    // TODO: there is a tigher bounds. Calculate them.
+    // e.g. when normal == (1, 0, 0, 0), the disc is infinitely thin in X
+    // direction.
     return AABB(
-        Eigen::Vector4f(l, l, l, l),
-        Eigen::Vector4f(m, m, m, m));
+        center + Eigen::Vector4f::Constant(-radius),
+        center + Eigen::Vector4f::Constant(radius));
 }
 
 

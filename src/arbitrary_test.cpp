@@ -8,19 +8,24 @@ std::vector<pentatope::Object> arbitraryObjects(std::mt19937& rg, int n_target) 
         (std::uniform_int_distribution<int>(1, 100)(rg));
     std::vector<pentatope::Object> objects;
     for(const int i : boost::irange(0, n)) {
-        if(std::bernoulli_distribution(0.01)(rg)) {
-            // Generate a Plane.
-            Eigen::Vector4f dir(
+        if(std::bernoulli_distribution(0.1)(rg)) {
+            // Generate a Disc.
+            const Eigen::Vector4f center(
+                std::uniform_real_distribution<float>(-100, 100)(rg),
+                std::uniform_real_distribution<float>(-100, 100)(rg),
+                std::uniform_real_distribution<float>(-100, 100)(rg),
+                std::uniform_real_distribution<float>(-100, 100)(rg));
+            Eigen::Vector4f normal(
                 std::uniform_real_distribution<float>(-1, 1)(rg),
                 std::uniform_real_distribution<float>(-1, 1)(rg),
                 std::uniform_real_distribution<float>(-1, 1)(rg),
                 std::uniform_real_distribution<float>(-1, 1)(rg));
-            dir.normalize();
+            normal.normalize();
+
+            const float radius = std::uniform_real_distribution<float>(0.1, 10)(rg);
 
             objects.emplace_back(
-                std::make_unique<pentatope::Plane>(
-                    dir,
-                    std::uniform_real_distribution<float>(-100, 100)(rg)),
+                std::make_unique<pentatope::Disc>(center, normal, radius),
                 std::make_unique<pentatope::UniformLambertMaterial>(
                     pentatope::fromRgb(1, 1, 1)));
         } else {

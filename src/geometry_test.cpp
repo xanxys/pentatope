@@ -176,36 +176,32 @@ TEST(OBB, IntersectionTranslated) {
     }
 }
 
-TEST(Plane, IntersectionOutOfBounds) {
-    const pentatope::Plane plane(
-        Eigen::Vector4f(-0.567885, -0.399743, 0.596379, 0.402548),
-        3.38434);
-    const pentatope::Ray ray(
-        Eigen::Vector4f(-16.9445, 3.52139, 83.1682, 96.4669),
-        Eigen::Vector4f(-0.536506, 0.13881, -0.466949, -0.689095));
 
-    EXPECT_FALSE(plane.intersect(ray));
-}
-
-TEST(Plane, BoundsIsCorrect) {
+TEST(Disc, BoundsIsCorrect) {
     std::mt19937 rg;
 
     for(const int i : boost::irange(0, 100)) {
         const auto ray = arbitraryRay(rg);
-        Eigen::Vector4f dir(
+
+        Eigen::Vector4f center(
+            std::uniform_real_distribution<float>(-10, 10)(rg),
+            std::uniform_real_distribution<float>(-10, 10)(rg),
+            std::uniform_real_distribution<float>(-10, 10)(rg),
+            std::uniform_real_distribution<float>(-10, 10)(rg));
+
+        Eigen::Vector4f normal(
             std::uniform_real_distribution<float>(-1, 1)(rg),
             std::uniform_real_distribution<float>(-1, 1)(rg),
             std::uniform_real_distribution<float>(-1, 1)(rg),
             std::uniform_real_distribution<float>(-1, 1)(rg));
-        dir.normalize();
+        normal.normalize();
 
-        const pentatope::Plane plane(
-            dir,
-            std::uniform_real_distribution<float>(-100, 100)(rg));
+        const float radius = std::uniform_real_distribution<float>(0.1, 100)(rg);
 
-        const auto isect = plane.intersect(ray);
+        const pentatope::Disc disc(center, normal, radius);
+        const auto isect = disc.intersect(ray);
         if(isect) {
-            EXPECT_TRUE(plane.bounds().contains(isect->pos()));
+            EXPECT_TRUE(disc.bounds().contains(isect->pos()));
         }
     }
 }

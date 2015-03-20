@@ -62,22 +62,24 @@ private:
 };
 
 
-// An infinite 4-d plane. Visible from both sides.
-// To make it finite, Plane is cut-off at sphere of cutoff_radius.
-class Plane : public Geometry {
+// A 4-d plane bounded by a sphere. Visible from both sides.
+class Disc : public Geometry {
 public:
-    // Create a Plane {p | p.dot(normal) == d}.
+    // Create a Disc with center, normal and radius.
     // normal must be a unit vector.
-    Plane(const Eigen::Vector4f& normal, float d);
+    Disc(
+        const Eigen::Vector4f& center,
+        const Eigen::Vector4f& normal, float radius);
 
     boost::optional<MicroGeometry>
         intersect(const Ray& ray) const override;
 
     AABB bounds() const override;
-//private:
+private:
+    Eigen::Vector4f center;
     Eigen::Vector4f normal;
-    float d;
-    const float cutoff_radius = 1e2;
+    float radius;
+    float d;  // == normal.dot(center)
 };
 
 

@@ -37,48 +37,48 @@ std::unique_ptr<Scene> createCornellTesseract() {
     // Z-:yellow Z+:blue
     // floor(W)
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, 1), 0)),
+        std::make_unique<Disc>(Eigen::Vector4f(0, 0, 0, 0), Eigen::Vector4f(0, 0, 0, 1), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         ));
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 0, -1), -2)),
+        std::make_unique<Disc>(Eigen::Vector4f(0, 0, 0, 2), Eigen::Vector4f(0, 0, 0, -1), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         ));
     // walls(X)
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(1, 0, 0, 0), -1)),
+        std::make_unique<Disc>(Eigen::Vector4f(-1, 0, 0, 1), Eigen::Vector4f(1, 0, 0, 0), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         ));
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(-1, 0, 0, 0), -1)),
+        std::make_unique<Disc>(Eigen::Vector4f(1, 0, 0, 1), Eigen::Vector4f(-1, 0, 0, 0), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         ));
     // walls(Y)
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 1, 0, 0), -1)),
+        std::make_unique<Disc>(Eigen::Vector4f(0, -1, 0, 1), Eigen::Vector4f(0, 1, 0, 0), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 1, 0)))
         ));
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, -1, 0, 0), -1)),
+        std::make_unique<Disc>(Eigen::Vector4f(0, 1, 0, 1), Eigen::Vector4f(0, -1, 0, 0), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 0, 0)))
         ));
     // walls(Z)
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, 1, 0), -1)),
+        std::make_unique<Disc>(Eigen::Vector4f(0, 0, -1, 1), Eigen::Vector4f(0, 0, 1, 0), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 0)))
         ));
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Plane(Eigen::Vector4f(0, 0, -1, 0), -1)),
+        std::make_unique<Disc>(Eigen::Vector4f(0, 0, 1, 1), Eigen::Vector4f(0, 0, -1, 0), 5),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 0, 1)))
         ));
 
     // object inside room
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0, 0, 0.2), 0.2)),
+        std::make_unique<Sphere>(Eigen::Vector4f(0, 0, 0, 0.2), 0.2),
         std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
         ));
     scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new Sphere(Eigen::Vector4f(0, 0.5, 0.1, 0.5), 0.5)),
+        std::make_unique<Sphere>(Eigen::Vector4f(0, 0.5, 0.1, 0.5), 0.5),
         std::unique_ptr<Material>(new GlassMaterial(1.5))
         ));
 
