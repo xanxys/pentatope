@@ -4,6 +4,30 @@
 // avoid collision.
 package pentatope;
 
+// A description of rendering a movie with static scene.
+// This assumes fixed frame-rate, 2d RGB image stream.
+// (currently no stereoscopy or volumetric data)
+//
+// Renderer need not assume temporal coherency because
+// exploiting it is PITA, and optimizing UI and distributed computation
+// is much better in practice, especially considering pentatope
+// is not coupled with any physics simulator.
+message RenderMovieTask {
+    // Framerate of the movie. Typically 30 or 60.
+    optional float framerate = 1;
+
+    // Size of the movie.
+    required uint32 width = 2;
+    required uint32 height = 3;
+
+    // All frames. sizes must match the width and height,
+    // but other parameters (such as FoV) can vary frame-to-frame.
+    repeated CameraConfig frames = 4;
+
+    // The static scene shared by all frames.
+    required RenderScene scene = 5;
+}
+
 // A description of rendering a single frame.
 // Contains scene description, camera, output image, etc.
 // It's not expected to distribute one RenderTask to
