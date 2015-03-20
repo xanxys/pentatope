@@ -1,9 +1,6 @@
 #!/bin/python2
 from __future__ import print_function, division
 import sys
-sys.path.append('build/proto')
-from render_task_pb2 import *
-from render_server_pb2 import *
 import argparse
 import boto
 import boto.ec2
@@ -13,6 +10,12 @@ import math
 import curses
 import tornado.httpclient
 import time
+import shutil
+import tempfile
+sys.path.append('build/proto')
+from render_task_pb2 import *
+from render_server_pb2 import *
+
 
 class IncompatibleAPIError(Exception):
     """
@@ -162,6 +165,60 @@ def run_task():
     print("Done! Results written to hogehoge")
 
 
+def render_movie_local(in_path, out_path):
+    """
+    Execute a RenderMovieTask (loaded from in_oath) and
+    output H264 movie to out_path.
+    """
+    task = RenderMovieTask()
+    with open(in_path, "rb") as f_task:
+        task.ParseFromString(f_task.read())
+
+    tasks_path_prefix = tempfile.mkdtemp()
+    images_path_prefix = tempfile.mkdtemp()
+
+    try:
+        # Render frames and collect image paths
+        image_paths = []
+        for (i_frame, frame_camera) in enumerate(task.frames):
+            path_task = os.path.join(
+                tasks_path_prefix, "frame-%06d.pb" % i_frame)
+            path_image = os.path.join(
+                images_path_prefix, "frame-%06d.png" % i_frame)
+
+            task_frame = RenderTask()
+            task_frame.sample_per_pixel = task.sample_per_pixel
+            task_frame.camera = frame_camera
+            task_frame.output_path = path_image
+            task_frame.scene = task.scene
+
+            with open(path_task, "wb") as f_task_frame:
+                f_task_frame.write(task_frame.SerializeToString())
+
+            print('Rendering frame %d of %d' % (i_frame + 1, len(task.frames)))
+            subprocess.check_call([
+                'build/pentatope', '--render', path_task])
+            image_paths.append(path_image)
+
+        assert(len(path_image) == len(task.frames))
+
+        # Encode frame images to a single h264 movie.
+        command = [
+            "ffmpeg",
+            "-y",  # overwrite
+            "-framerate", str(args.fps),
+            "-i", os.path.join(images_path_prefix, "frame-%06d.png"),
+            "-crf", "18",  # visually lossless
+            "-c:v", "libx264",
+            "-r", str(args.fps),
+            out_path]
+        print('Encoding with command: %s' % command)
+        subprocess.check_call(command)
+    finally:
+        shutil.rmtree(tasks_path_prefix)
+        shutil.rmtree(images_path_prefix)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""Render given animation.""",
@@ -186,62 +243,62 @@ if __name__ == '__main__':
         help="Encode the results as H264/mp4.",
         type=str, default=None)
 
+    # Validation
     args = parser.parse_args()
-
     if not args.local and args.aws is None:
         print("You must specify at least one computation platform.", file=sys.stderr)
         sys.exit(1)
 
     if args.aws is not None:
         aws_cred = json.load(open(args.aws))
-    
+
     if args.output_mp4 is None:
         print("You should specify one or more output format.", file=sys.stderr)
         sys.exit(1)
 
     # 1 minute clip @ 60fps, 1080p, 100sample/px
-    n_samples = 60 * 60 * 1920 * 1080 * 100
-    est = plan_action(n_samples)
+#     n_samples = 60 * 60 * 1920 * 1080 * 100
+#     est = plan_action(n_samples)
 
-    print("== Estimated Time & Price ==")
-    print("* time: %.1f hour" % est["time"])
-    print("* price: %.1f USD" % est["price"])
-    print("== Price Breakup ==")
-    print("* AWS EC2: %s, %s, spot %d nodes" %
-        (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
+#     print("== Estimated Time & Price ==")
+#     print("* time: %.1f hour" % est["time"])
+#     print("* price: %.1f USD" % est["price"])
+#     print("== Price Breakup ==")
+#     print("* AWS EC2: %s, %s, spot %d nodes" %
+#         (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
 
-    while True:
-        result = raw_input("Do you want to proceed? (y/n)")
-        if result == 'y':
-            break
-        elif result == 'n':
-            sys.exit(0)
+#     while True:
+#         result = raw_input("Do you want to proceed? (y/n)")
+#         if result == 'y':
+#             break
+#         elif result == 'n':
+#             sys.exit(0)
 
-    print("Running tasks")
-    # run_task()
+#     print("Running tasks")
+#     # run_task()
 
-#    boto.config.add_section("Credentials")
-#    boto.config.set('Credentials', 'aws_access_key_id',
-#        aws_cred["access_key"])
-#    boto.config.set('Credentials', 'aws_secret_access_key',
-#        aws_cred["secret_access_key"])
-    region = boto.ec2.connect_to_region(
-        "ap-northeast-1",
-        #est["ec2"]["region"],
-        aws_access_key_id=aws_cred["access_key"],
-        aws_secret_access_key=aws_cred["secret_access_key"])
-    if region is None:
-        raise RuntimeError("Couldn't connect to %s" % est["ec2"]["region"])
+# #    boto.config.add_section("Credentials")
+# #    boto.config.set('Credentials', 'aws_access_key_id',
+# #        aws_cred["access_key"])
+# #    boto.config.set('Credentials', 'aws_secret_access_key',
+# #        aws_cred["secret_access_key"])
+#     region = boto.ec2.connect_to_region(
+#         "ap-northeast-1",
+#         #est["ec2"]["region"],
+#         aws_access_key_id=aws_cred["access_key"],
+#         aws_secret_access_key=aws_cred["secret_access_key"])
+#     if region is None:
+#         raise RuntimeError("Couldn't connect to %s" % est["ec2"]["region"])
 
-    spot_req = region.request_spot_instances(
-        "0.1",
-        est["ec2"]["ami"],
-        key_name=None,
-        security_groups=None,
-        instance_type="t1.micro")
-    print(spot_req)
+#     spot_req = region.request_spot_instances(
+#         "0.1",
+#         est["ec2"]["ami"],
+#         key_name=None,
+#         security_groups=None,
+#         instance_type="t1.micro")
+#     print(spot_req)
 
-    while True:
-        print(spot_req.state)
-        time.sleep(1)
-
+#     while True:
+#         print(spot_req.state)
+#         time.sleep(1)
+    render_movie_local(args.input, args.output_mp4)
