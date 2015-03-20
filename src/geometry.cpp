@@ -88,12 +88,12 @@ boost::optional<MicroGeometry>
 }
 
 AABB Disc::bounds() const {
-    // TODO: there is a tigher bounds. Calculate them.
-    // e.g. when normal == (1, 0, 0, 0), the disc is infinitely thin in X
-    // direction.
-    return AABB(
-        center + Eigen::Vector4f::Constant(-radius),
-        center + Eigen::Vector4f::Constant(radius));
+    Eigen::Vector4f d_bound;
+    for(const int axis : boost::irange(0, 4)) {
+        const float sin_axis = std::sqrt(1 - std::pow(normal(axis), 2));
+        d_bound(axis) = std::max(1e-3f, sin_axis * radius);  // make bound size non-zero to avoid numeric instability.
+    }
+    return AABB(center - d_bound, center + d_bound);
 }
 
 
