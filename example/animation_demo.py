@@ -9,30 +9,13 @@ sys.path.append('build/proto')
 import render_task_pb2 as proto
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="""
-Generate a scene containing a fractal landscape and trees.""",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        '--test', action='store_true',
-        help='Lower sample/px and smaller resolution for quick testing.')
-    parser.add_argument(
-        '--output', type=str, required=True,
-        help="Output path of RenderTask in .pb.")
-    parser.add_argument(
-        '--render_output', type=str, required=True,
-        help="Deferred output path of rendered image.")
-    args = parser.parse_args()
+def camera_config_nature_duration():
+    return 1.0
 
-    task = proto.RenderTask()
-    if args.test:
-        task.sample_per_pixel = 15
-    else:
-        task.sample_per_pixel = 250
-    task.output_path = args.render_output
-
-    t = 0
+def camera_config_nature(t, args, camera_config, image_size):
+    """
+    Set CameraConfig at time t in nature scene.
+    """
     rot_per_sec_xy = 1
     # rotation:
     # stage <- Camera
@@ -70,20 +53,73 @@ Generate a scene containing a fractal landscape and trees.""",
     pos_t = np.dot(stage_to_world, pos0)
     l_to_w_t = np.dot(stage_to_world, local_to_stage)
 
-    task.camera.camera_type = "perspective2"
-    if args.test:
-        task.camera.size_x = 160
-        task.camera.size_y = 120
+    camera_config.camera_type = "perspective2"
+    camera_config.size_x, camera_config.size_y = image_size
+    camera_config.fov_x = 157
+    camera_config.fov_y = 150
+    camera_config.local_to_world.rotation.extend(list(l_to_w_t.flatten()))
+    camera_config.local_to_world.translation.extend(list(pos_t))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="""
+Generate one of the shots of scenes.""",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # common flag
+    parser.add_argument(
+        '--test', action='store_true',
+        help='Lower sample/px and smaller resolution for quick testing.')
+    # command flag
+    parser.add_argument(
+        '--output', type=str,
+        help="Output path of RenderTask in .pb.")
+    parser.add_argument(
+        '--render_output', type=str,
+        help="Deferred output path of rendered image.")
+
+    parser.add_argument(
+        '--shot_nature', type=str,
+        help='Generate RenderMovieTask of a shot of a nature scene.')
+    args = parser.parse_args()
+
+    # verify command
+    if args.output is not None:
+        if args.render_output is None:
+            print("--render_output is required for --output")
+            sys.exit(1)
+    elif args.shot_nature is not None:
+        pass
     else:
-        task.camera.size_x = 640
-        task.camera.size_y = 480
-    task.camera.fov_x = 157
-    task.camera.fov_y = 150
-    task.camera.local_to_world.rotation.extend(list(l_to_w_t.flatten()))
-    task.camera.local_to_world.translation.extend(list(pos_t))
+        print("Either --output or --shot_nature is required")
+        sys.exit(1)
 
-    scene = task.scene
-    scene_nature.set_landscape(scene)
+    if args.test:
+        sample_per_pixel = 15
+        image_size = (160, 120)
+    else:
+        sample_per_pixel = 250
+        image_size = (640, 480)
+    fps = 30
 
-    with open(args.output, "wb") as f_task:
-        f_task.write(task.SerializeToString())
+    if args.output is not None:
+        task = proto.RenderTask()
+        task.sample_per_pixel = sample_per_pixel
+        task.output_path = args.render_output
+        camera_config_nature(0, args, task.camera, image_size)
+        scene_nature.set_landscape(task.scene)
+        with open(args.output, "wb") as f_task:
+            f_task.write(task.SerializeToString())
+    elif args.shot_nature is not None:
+        task = proto.RenderMovieTask()
+        task.sample_per_pixel = sample_per_pixel
+        task.width, task.height = image_size
+
+        n_frames = int(camera_config_nature_duration() / fps)
+        for i in range(n_frames):
+            frame_cam = task.frames.add()
+            camera_config_nature(i / fps, args, frame_cam, image_size)
+
+        scene_nature.set_landscape(task.scene)
+        with open(args.shot_nature, "wb") as f_task:
+            f_task.write(task.SerializeToString())

@@ -26,6 +26,8 @@ message RenderMovieTask {
 
     // The static scene shared by all frames.
     required RenderScene scene = 5;
+
+    optional uint32 sample_per_pixel = 6;
 }
 
 // A description of rendering a single frame.
