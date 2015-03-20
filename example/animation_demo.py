@@ -16,7 +16,6 @@ def camera_config_nature(t, args, camera_config, image_size):
     """
     Set CameraConfig at time t in nature scene.
     """
-    rot_per_sec_xy = 1
     # rotation:
     # stage <- Camera
     # X+         X+(horz)
@@ -31,21 +30,7 @@ def camera_config_nature(t, args, camera_config, image_size):
     # world <- stage
     # lookat (0, 0, 0, 1)
     # by (X,Y) & (X,Z)-rotation
-    pos0 = np.array([0, 0, 0, 4])
-    # rot_per_sec_xy = 1 / 2
-    # rot_per_sec_xz = 1 / 3
-    # angle_xy = 2 * math.pi * rot_per_sec_xy * t
-    # angle_xz = 2 * math.pi * rot_per_sec_xz * t
-    # rot_xy = np.eye(4)
-    # rot_xy[0, 0] = math.cos(angle_xy)
-    # rot_xy[1, 0] = math.sin(angle_xy)
-    # rot_xy[0, 1] = -math.sin(angle_xy)
-    # rot_xy[1, 1] = math.cos(angle_xy)
-    # rot_xz = np.eye(4)
-    # rot_xz[0, 0] = math.cos(angle_xz)
-    # rot_xz[2, 0] = math.sin(angle_xz)
-    # rot_xz[0, 2] = -math.sin(angle_xz)
-    # rot_xz[2, 2] = math.cos(angle_xz)
+    pos0 = np.array([0, 0, t * 2, 4])
 
     # stage_to_world = np.dot(rot_xy, rot_xz)
     stage_to_world = np.eye(4)
