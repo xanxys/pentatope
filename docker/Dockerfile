@@ -9,18 +9,18 @@ FROM fedora:21
 # Runtime
 RUN yum update -y; \
     yum install -y \
-    boost \
+    libstdc++ boost \
     protobuf gflags glog \
     eigen3 opencv; \
     yum clean all
 
 # Dev tools
 RUN yum install -y \
-    boost-devel \
+    libstdc++-devel boost-devel \
     protobuf-devel protobuf-compiler gflags-devel gtest-devel glog-devel \
     eigen3-devel opencv-devel \
     numpy scipy pycairo \
-    nano scons git clang gcc-c++ libstdc++-devel; \
+    nano scons git clang gcc-c++ valgrind; \
     yum clean all
 
 # Get Project and compile
