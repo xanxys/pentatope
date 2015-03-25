@@ -4,14 +4,14 @@ FROM ubuntu:14.10
 RUN apt-get update; \
     apt-get install -y \
     libstdc++6 \
-    libboost \
     libboost-filesystem1.55.0 \
     libboost-program-options1.55.0 \
     libboost-system1.55.0 \
     libboost-thread1.55.0 \
     libprotobuf8 \
     libgflags2 libgoogle-glog0 \
-    libopencv2.4; \
+    libopencv2.4
+    libcppnetlib0; \
     apt-get clean
 
 # Dev tools
@@ -25,6 +25,7 @@ RUN apt-get install -y \
     libgflags-dev libgtest-dev libgoogle-glog-dev \
     libeigen3-dev \
     libopencv-dev \
+    libcppnetlib-dev \
     python-numpy python-scipy \
     nano scons cmake make git clang valgrind; \
     apt-get clean; \

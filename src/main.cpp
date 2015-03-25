@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <boost/network/protocol/http/server.hpp>
 #include <boost/program_options.hpp>
 #include <Eigen/Dense>
 #include <glog/logging.h>
@@ -15,6 +16,27 @@
 #include <scene.h>
 
 using namespace pentatope;
+
+namespace http = boost::network::http;
+
+class RenderHandler;
+using http_server = http::server<RenderHandler>;
+
+class RenderHandler {
+public:
+    void operator()(
+            const http_server::request& request,
+            http_server::response& response) {
+        response = http_server::response::stock_reply(
+            http_server::response::ok, "Hello");
+    }
+
+    void log(const http_server::string_type& info) {
+        LOG(WARNING) << "server: " << info;
+    }
+};
+
+
 
 // Since there is a python frontend for pentatope binary,
 // error messages can be unhelpful to reduce code clutter.
@@ -65,7 +87,15 @@ int main(int argc, char** argv) {
         LOG(INFO) << "Writing render result to " << output_path;
         cv::imwrite(output_path, result);
     } else {
-        std::cout << desc << std::endl;
+        LOG(INFO) << "Running as an HTTP service, listening on port 80";
+
+        RenderHandler handler;
+        http_server server(
+            http_server::options(handler)
+                .address("0.0.0.0")
+                .port("80")
+                .reuse_address(true));
+        server.run();
     }
     return 0;
 }
