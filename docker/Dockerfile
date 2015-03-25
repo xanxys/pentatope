@@ -1,27 +1,39 @@
-FROM fedora:21
-
-# Confirmed versions
-# pcl: 1.7.1
-# eigen: 3.2.2
-# opencv: 2.4.7
-# boost: 1.53.0
+FROM ubuntu:14.10
 
 # Runtime
-RUN yum update -y; \
-    yum install -y \
-    libstdc++ boost \
-    protobuf gflags glog \
-    eigen3 opencv; \
-    yum clean all
+RUN apt-get update; \
+    apt-get install -y \
+    libstdc++6 \
+    libboost \
+    libboost-filesystem1.55.0 \
+    libboost-program-options1.55.0 \
+    libboost-system1.55.0 \
+    libboost-thread1.55.0 \
+    libprotobuf8 \
+    libgflags2 libgoogle-glog0 \
+    libopencv2.4; \
+    apt-get clean
 
 # Dev tools
-RUN yum install -y \
-    libstdc++-devel boost-devel \
-    protobuf-devel protobuf-compiler gflags-devel gtest-devel glog-devel \
-    eigen3-devel opencv-devel \
-    numpy scipy pycairo \
-    nano scons git clang gcc-c++ valgrind; \
-    yum clean all
+RUN apt-get install -y \
+    libstdc++-4.8-dev libboost-dev \
+    libboost-filesystem1.55-dev \
+    libboost-program-options1.55-dev \
+    libboost-system1.55-dev \
+    libboost-thread1.55-dev \
+    libprotobuf-dev protobuf-compiler \
+    libgflags-dev libgtest-dev libgoogle-glog-dev \
+    libeigen3-dev \
+    libopencv-dev \
+    python-numpy python-scipy \
+    nano scons cmake make git clang valgrind; \
+    apt-get clean; \
+    # gtest library build
+    cp -R /usr/src/gtest /root/gtest; \
+    cd /root/gtest; \
+    cmake .; \
+    make -j 4; \
+    cp libgtest.a libgtest_main.a /usr/lib/x86_64-linux-gnu/
 
 # Get Project and compile
 RUN cd /root; \
