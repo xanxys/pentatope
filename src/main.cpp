@@ -12,6 +12,7 @@
 
 #include <camera.h>
 #include <loader.h>
+#include <proto/render_server.pb.h>
 #include <sampling.h>
 #include <scene.h>
 
@@ -27,8 +28,25 @@ public:
     void operator()(
             const http_server::request& request,
             http_server::response& response) {
+        RenderRequest render_request;
+        if(!render_request.ParseFromString(body(request))) {
+            response = http_server::response::stock_reply(
+                http_server::response::bad_request,
+                "Use render_server.RenderRequest protobuf");
+            return;
+        }
+
+        // process something
+        RenderResponse render_response;
+        std::string response_body;
+        if(!render_response.SerializeToString(&response_body)) {
+            response = http_server::response::stock_reply(
+                http_server::response::internal_server_error,
+                "Somehow failed to serialize render_server.RenderResponse protobuf");
+        }
+
         response = http_server::response::stock_reply(
-            http_server::response::ok, "Hello");
+            http_server::response::ok, response_body);
     }
 
     void log(const http_server::string_type& info) {
