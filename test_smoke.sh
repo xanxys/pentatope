@@ -2,7 +2,7 @@
 # This code tests pentatope actually runs and produces some results
 # for all example scenes.
 
-readonly EXEC_PENTATOPE="sudo docker run -t -i --rm -v /home/xyx/repos/pentatope:/root/local xanxys/pentatope /root/local/build/pentatope"
+readonly EXEC_PENTATOPE="sudo docker run -t -i --rm -v /home/xyx/repos/pentatope:/root/local xanxys/pentatope-dev /root/local/build/pentatope"
 
 print_pass() {
     echo -e "\033[0;32m[PASS]\033[0m"
