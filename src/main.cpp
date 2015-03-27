@@ -47,6 +47,12 @@ public:
     void operator()(
             const http_server::request& request,
             http_server::response& response) {
+        if(request.method != "POST") {
+            response = http_server::response::stock_reply(
+                http_server::response::bad_request,
+                "Use POST method");
+            return;
+        }
         RenderRequest render_request;
         if(!render_request.ParseFromString(body(request))) {
             response = http_server::response::stock_reply(
@@ -56,15 +62,8 @@ public:
         }
 
         // process something
-        RenderResponse render_response;
-        std::string response_body;
-        if(!render_response.SerializeToString(&response_body)) {
-            response = http_server::response::stock_reply(
-                http_server::response::internal_server_error,
-                "Somehow failed to serialize render_server.RenderResponse protobuf");
-        }
-
         LOG(INFO) << "Processing RenderRequest";
+        RenderResponse render_response;
 
         if(!render_request.has_task()) {
             render_response.set_is_ok(false);
@@ -72,11 +71,18 @@ public:
         } else {
             const cv::Mat result = executeRenderTask(n_threads, render_request.task());
             std::vector<uint8_t> buffer;
-            cv::imencode("png", result, buffer);
+            cv::imencode(".png", result, buffer);
             render_response.set_output(std::string(buffer.begin(), buffer.end()));
             render_response.set_is_ok(true);
         }
 
+        std::string response_body;
+        if(!render_response.SerializeToString(&response_body)) {
+            response = http_server::response::stock_reply(
+                http_server::response::internal_server_error,
+                "Somehow failed to serialize render_server.RenderResponse protobuf");
+            return;
+        }
         response = http_server::response::stock_reply(
             http_server::response::ok, response_body);
     }
