@@ -10,6 +10,15 @@ message RenderRequest {
 }
 
 message RenderResponse {
+	// If is_ok, output is available.
+	// Otherwise, Human-readable error_message might be present.
+	required bool is_ok = 1;
+
+	// Optional human-readable error message.
+	// Don't fill this field when is_ok==true.
+	// Also don't use this field to add machine-readable status code.
+	optional string error_message = 2;
+
 	// Output blob. Typically image.
-	optional bytes output = 1;
+	optional bytes output = 3;
 }

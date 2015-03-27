@@ -331,20 +331,11 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(const CameraConfig& config) 
     return camera;
 }
 
-// load RenderTask from given prototxt file,
+// parse RenderTask from given prototxt file,
 // and return (scene, camera, #samples/px)
 std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
-        loadProtoFile(const std::string& path) {
-    // Load to on-memory string since google:: streams are hard to use.
-    const std::string proto = readFile(path);
-    RenderTask rt;
-    if(!rt.ParseFromString(proto)) {
-        if(!google::protobuf::TextFormat::ParseFromString(proto, &rt)) {
-            throw std::runtime_error(
-                "Couldn't parse RenderTask as either prototxt or binary proto");
-        }
-    }
-    LOG(INFO) << "RenderTask loaded: " <<
+        loadRenderTask(const RenderTask& rt) {
+    LOG(INFO) << "RenderTask scene: " <<
         (rt.has_scene_name() ? rt.scene_name() : "<scene name unspecified>");
 
     std::unique_ptr<Scene> scene = loadSceneFromRenderTask(rt);
@@ -363,13 +354,23 @@ std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
         throw physics_error("sampler_per_px must be > 0");
     }
 
-    // Check output settings.
-    if(!rt.has_output_path()) {
-        throw invalid_task("output_path not found");
-    }
-
     return std::make_tuple(
         std::move(scene), std::move(camera), sample_per_px, rt.output_path());
 }
+
+RenderTask readRenderTaskFromFile(const std::string& path) {
+    // Load to on-memory string since google:: streams are hard to use.
+    const std::string proto = readFile(path);
+    RenderTask rt;
+    if(!rt.ParseFromString(proto)) {
+        if(!google::protobuf::TextFormat::ParseFromString(proto, &rt)) {
+            throw std::runtime_error(
+                "Couldn't parse RenderTask as either prototxt or binary proto");
+        }
+    }
+    return rt;
+}
+
+
 
 }  // namespace

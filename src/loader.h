@@ -27,10 +27,6 @@ public:
 // and remove this function.
 std::unique_ptr<Scene> createCornellTesseract();
 
-// fast but ugly code to get file content onto memory.
-// http://stackoverflow.com/a/2602060
-std::string readFile(const std::string& path);
-
 Spectrum loadSpectrum(const SpectrumProto& sp);
 
 Eigen::Vector4f loadPoint(const Point& pt);
@@ -53,8 +49,17 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(
 
 // load RenderTask from given prototxt or binary proto file,
 // and return (scene, camera, #samples/px, output_path)
-// Binary proto is tried first, and then text proto.
 std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
-    loadProtoFile(const std::string& path);
+    loadRenderTask(const RenderTask& task);
+
+
+// fast but ugly code to get file content onto memory.
+// http://stackoverflow.com/a/2602060
+std::string readFile(const std::string& path);
+
+// load RenderTask from given prototxt or binary proto file.
+// Binary proto is tried first, and then text proto.
+RenderTask readRenderTaskFromFile(const std::string& path);
+
 
 }  // namespace

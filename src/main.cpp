@@ -18,6 +18,21 @@
 
 using namespace pentatope;
 
+
+cv::Mat executeRenderTask(const int n_threads, const RenderTask& rtask) {
+    auto task = loadRenderTask(rtask);
+    auto scene = std::move(std::get<0>(task));
+    const auto camera = std::move(std::get<1>(task));
+    const auto sample_per_px = std::get<2>(task);
+    const auto output_path = std::get<3>(task);
+
+    LOG(INFO) << "Starting task";
+    Sampler sampler;
+    return camera->render(*scene, sampler,
+        sample_per_px, n_threads);
+}
+
+
 namespace http = boost::network::http;
 
 class RenderHandler;
@@ -25,6 +40,10 @@ using http_server = http::server<RenderHandler>;
 
 class RenderHandler {
 public:
+    RenderHandler(int n_threads) : n_threads(n_threads) {
+        assert(n_threads > 0);
+    }
+
     void operator()(
             const http_server::request& request,
             http_server::response& response) {
@@ -45,13 +64,28 @@ public:
                 "Somehow failed to serialize render_server.RenderResponse protobuf");
         }
 
+        LOG(INFO) << "Processing RenderRequest";
+
+        if(!render_request.has_task()) {
+            render_response.set_is_ok(false);
+            render_response.set_error_message("Nothing to do");
+        } else {
+            const cv::Mat result = executeRenderTask(n_threads, render_request.task());
+            std::vector<uint8_t> buffer;
+            cv::imencode("png", result, buffer);
+            render_response.set_output(std::string(buffer.begin(), buffer.end()));
+            render_response.set_is_ok(true);
+        }
+
         response = http_server::response::stock_reply(
             http_server::response::ok, response_body);
     }
 
-    void log(const http_server::string_type& info) {
-        LOG(WARNING) << "server: " << info;
+    void log(const http_server::string_type& message) {
+        LOG(WARNING) << "server: " << message;
     }
+private:
+    int n_threads;
 };
 
 
@@ -78,36 +112,36 @@ int main(int argc, char** argv) {
     store(parse_command_line(argc, argv, desc), vars);
     notify(vars);
 
+    // Calculate number of threads to use.
+    int n_threads = sysconf(_SC_NPROCESSORS_ONLN);
+    if(vars.count("max-threads") > 0) {
+        const int max_threads = vars["max-threads"].as<int>();
+        CHECK_GT(max_threads, 0) << "Need a positive number of cores to proceed";
+        n_threads = std::min(max_threads, n_threads);
+    }
+    LOG(INFO) << "Using #threads=" << n_threads;
+
     if(vars.count("help") > 0) {
         std::cout << desc << std::endl;
     } else if(vars.count("render") > 0) {
         const auto task_path = vars["render"].as<std::string>();
         LOG(INFO) << "Render task path: " << task_path;
-        auto task = loadProtoFile(task_path);
-        auto scene = std::move(std::get<0>(task));
-        const auto camera = std::move(std::get<1>(task));
-        const auto sample_per_px = std::get<2>(task);
-        const auto output_path = std::get<3>(task);
+        auto task = readRenderTaskFromFile(task_path);
 
-        // Calculate number of threads to use.
-        int n_threads = sysconf(_SC_NPROCESSORS_ONLN);
-        if(vars.count("max-threads") > 0) {
-            const int max_threads = vars["max-threads"].as<int>();
-            CHECK_GT(max_threads, 0) << "Need a positive number of cores to proceed";
-            n_threads = std::min(max_threads, n_threads);
+        // TODO: this feels out-of-place, and
+        // having output_path means rewriting (possibly large) chunk of scene
+        // data just for changing output path. Make it configurable from args.
+        // Check output settings.
+        if(!task.has_output_path()) {
+            throw std::runtime_error("output_path not found");
         }
-        LOG(INFO) << "Using #threads=" << n_threads;
-
-        LOG(INFO) << "Starting task";
-        Sampler sampler;
-        cv::Mat result = camera->render(*scene, sampler,
-            sample_per_px, n_threads);
+        const auto output_path = task.output_path();
+        const cv::Mat result = executeRenderTask(n_threads, task);
         LOG(INFO) << "Writing render result to " << output_path;
         cv::imwrite(output_path, result);
     } else {
         LOG(INFO) << "Running as an HTTP service, listening on port 80";
-
-        RenderHandler handler;
+        RenderHandler handler(n_threads);
         http_server server(
             http_server::options(handler)
                 .address("0.0.0.0")
