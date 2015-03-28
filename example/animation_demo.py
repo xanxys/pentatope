@@ -97,10 +97,12 @@ Generate one of the shots of scenes.""",
             f_task.write(task.SerializeToString())
     elif args.shot_nature is not None:
         task = proto.RenderMovieTask()
+        task.framerate = fps
         task.sample_per_pixel = sample_per_pixel
         task.width, task.height = image_size
 
-        n_frames = int(camera_config_nature_duration() / fps)
+        n_frames = int(camera_config_nature_duration() * fps)
+        print("Generating %d frames @ %f fps" % (n_frames, fps))
         for i in range(n_frames):
             frame_cam = task.frames.add()
             camera_config_nature(i / fps, args, frame_cam, image_size)
