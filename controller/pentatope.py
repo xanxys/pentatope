@@ -1,17 +1,19 @@
 #!/bin/python2
 from __future__ import print_function, division
-import sys
 import argparse
 import boto
 import boto.ec2
-import urllib2
 import json
 import math
-import curses
-import tornado.httpclient
-import time
+import os
+import random
 import shutil
+import subprocess
+import sys
 import tempfile
+import time
+import tornado.httpclient
+import urllib2
 sys.path.append('build/proto')
 from render_task_pb2 import *
 from render_server_pb2 import *
@@ -20,6 +22,13 @@ from render_server_pb2 import *
 class IncompatibleAPIError(Exception):
     """
     Raised when (often unofficial) API changes.
+    """
+    pass
+
+
+class InvalidTaskError(Exception):
+    """
+    Raised when user-specified task is un-executable.
     """
     pass
 
@@ -165,58 +174,122 @@ def run_task():
     print("Done! Results written to hogehoge")
 
 
-def render_movie_local(in_path, out_path):
+class LocalProvider(object):
+    """
+    Provides local pentatope instances.
+    LocalProvier assumes docker to be installed on the local system,
+    and sudo works without password.
+    """
+    def calc_bill(self):
+        return [
+            ("This machine", 0)]
+
+    def prepare(self):
+        self.image_name = "xanxys/pentatope-dev"
+        self.container_name = "pentatope_local_worker_%d" % random.randint(0, 1000)
+        self.port = random.randint(35000, 50000)
+
+        result = subprocess.check_output([
+            "sudo", "docker", "run",
+            "--detach=true",
+            "--volume", "/home/xyx/repos/pentatope:/root/local",
+            "--name", self.container_name,
+            "--publish", "%d:80" % self.port,
+            self.image_name,
+            "/root/local/build/pentatope"])
+        self.container_id = result.decode('utf-8').strip()
+        time.sleep(1)  # wait server boot
+        return ["http://localhost:%d/" % self.port]
+
+    def discard(self):
+        subprocess.call([
+            "sudo", "docker", "rm", "-f", self.container_id])
+
+
+class EC2Provider(object):
+    """
+    Provides remote pentatope instances on AWS EC2.
+    """
+    def __init__(self, credentials):
+        pass
+
+    def calc_bill(self):
+        pass
+    
+    def prepare(self):
+        pass
+
+    def discard(self):
+        pass
+
+
+def render_movie(providers, in_path, out_path):
     """
     Execute a RenderMovieTask (loaded from in_oath) and
     output H264 movie to out_path.
+    This function use providers for actual calculation.
     """
     task = RenderMovieTask()
     with open(in_path, "rb") as f_task:
         task.ParseFromString(f_task.read())
 
-    tasks_path_prefix = tempfile.mkdtemp()
+    if len(task.frames) == 0:
+        raise InvalidTaskError("One or more frames required")
+
+    instances = []
+    for provider in providers:
+        instances += provider.prepare()
+    assert(len(instances) > 0)
+
     images_path_prefix = tempfile.mkdtemp()
 
     try:
         # Render frames and collect image paths
         image_paths = []
         for (i_frame, frame_camera) in enumerate(task.frames):
-            path_task = os.path.join(
-                tasks_path_prefix, "frame-%06d.pb" % i_frame)
             path_image = os.path.join(
                 images_path_prefix, "frame-%06d.png" % i_frame)
 
             task_frame = RenderTask()
             task_frame.sample_per_pixel = task.sample_per_pixel
-            task_frame.camera = frame_camera
-            task_frame.output_path = path_image
-            task_frame.scene = task.scene
+            task_frame.camera.CopyFrom(frame_camera)
+            task_frame.scene.CopyFrom(task.scene)
 
-            with open(path_task, "wb") as f_task_frame:
-                f_task_frame.write(task_frame.SerializeToString())
+            render_request = RenderRequest()
+            render_request.task.CopyFrom(task_frame)
 
             print('Rendering frame %d of %d' % (i_frame + 1, len(task.frames)))
-            subprocess.check_call([
-                'build/pentatope', '--render', path_task])
-            image_paths.append(path_image)
+            response = urllib2.urlopen(
+                instances[0],
+                render_request.SerializeToString(),
+                300).read()
+            render_response = RenderResponse()
+            render_response.ParseFromString(response)
+            if not render_response.is_ok:
+                print("Server error: %s" % render_response.error_message)
 
-        assert(len(path_image) == len(task.frames))
+            with open(path_image, "wb") as f_image:
+                f_image.write(render_response.output)
+            image_paths.append(path_image)
+        assert(len(image_paths) == len(task.frames))
 
         # Encode frame images to a single h264 movie.
         command = [
             "ffmpeg",
             "-y",  # overwrite
-            "-framerate", str(args.fps),
+            "-framerate", str(task.framerate),
             "-i", os.path.join(images_path_prefix, "frame-%06d.png"),
             "-crf", "18",  # visually lossless
             "-c:v", "libx264",
-            "-r", str(args.fps),
+            "-loglevel", "warning",
+            "-r", str(task.framerate),
             out_path]
         print('Encoding with command: %s' % command)
         subprocess.check_call(command)
     finally:
-        shutil.rmtree(tasks_path_prefix)
         shutil.rmtree(images_path_prefix)
+        for provider in providers:
+            provider.discard()
 
 
 if __name__ == '__main__':
@@ -301,4 +374,10 @@ if __name__ == '__main__':
 #     while True:
 #         print(spot_req.state)
 #         time.sleep(1)
-    render_movie_local(args.input, args.output_mp4)
+
+    providers = [LocalProvider()]
+
+    for provider in providers:
+        print(provider.calc_bill())
+
+    render_movie(providers, args.input, args.output_mp4)
