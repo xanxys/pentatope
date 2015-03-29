@@ -15,8 +15,6 @@ heavy influence of [pbrt](http://www.pbrt.org/).
 * `src/`: contains C++ code for worker node (runs on AWS)
 * `controller/`: contains python code for controller (runs on your PC)
 
-## Content Viewer
-[WIP](https://xanxys.github.io/pentatope)
 
 ## References
 * [Mathematical proof etc. on google drive](https://docs.google.com/document/d/1lfWarQdW_cZsIxPnigJCLeeWBzgZ6UGsgGNOq_5b1J8/edit?usp=sharing) (commentable, non-editable)
