@@ -1,0 +1,3 @@
+FROM xanxys/pentatope-base
+
+COPY pentatope /root/pentatope/pentatope

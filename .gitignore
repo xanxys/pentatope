@@ -1,6 +1,9 @@
 # Build related
 .sconsign.dblite
 build/
+build-temp/
+controller/*_pb2.py
+example/*_pb2.py
 *.pyc
 # Sublime project
 *.sublime-workspace
