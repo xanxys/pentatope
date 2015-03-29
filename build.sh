@@ -1,0 +1,37 @@
+#!/bin/bash
+set -e  # exit immediately after error
+
+echo "Creating base (1/4)"
+sudo docker build -t xanxys/pentatope-base -f docker/base ./docker
+
+echo "Creating dev (2/4)"
+sudo docker build -t xanxys/pentatope-dev -f docker/dev ./docker
+
+echo "Creating prod (3/4)"
+# Build inside dev container and extract all build product
+sudo rm -rf build-temp
+sudo docker run --rm \
+	--volume $(pwd):/root/local \
+	xanxys/pentatope-dev \
+	cp -Rv /root/pentatope/build /root/local/build-temp/
+sudo chmod -R a+rw build-temp
+
+# Create prod image by copying only the binary
+cp build-temp/pentatope docker/
+sudo docker build -t xanxys/pentatope-prod -f docker/prod ./docker
+
+# Copy python proto files to local directories (controller & example)
+cp build-temp/proto/*.py controller/
+cp build-temp/proto/*.py example/
+
+# Remove build artifacts immediately because they're not runnable outside
+# containers.
+sudo rm -rf build-temp
+
+echo "Pushing prod (4/4) (This step could fail you're not xanxys)"
+# Run worker integration tests using local docker.
+./test_smoke.py
+
+sudo docker push xanxys/pentatope-prod
+
+echo "Done!"
