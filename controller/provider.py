@@ -124,11 +124,15 @@ class EC2Provider(object):
     def prepare(self):
         self._setup_sg()
 
-        boot_script = """
-        #!/bin/bash
-        docker pull xanxys/pentatope
-        docker run --detach=true --publish 8000:80 xanxys/pentatope /root/pentatope/pentatope
-        """
+        boot_script = '\n'.join([
+            '#cloud-config',
+            'repo_upgrade: all',
+            'packages:',
+            ' - docker',
+            'runcmd:',
+            ' - ["/etc/init.d/docker", "start"]',
+            ' - ["docker", "pull", "xanxys/pentatope-prod"]',
+            ' - ["docker", "run", "--detach=true", "--publish", "8000:80", "xanxys/pentatope-prod", "/root/pentatope/pentatope"]'])
         image_id = 'ami-d114f295'  # us-west-1
         self.reservation = self.conn.run_instances(
             image_id,
@@ -137,28 +141,30 @@ class EC2Provider(object):
             user_data=boot_script)
         instance = self.reservation.instances[0]
         wait_limit = 100
-        t_limit = time.clock() + wait_limit
+        t_limit = time.time() + wait_limit
         # wait boot
-        while time.clock() < t_limit:
+        while time.time() < t_limit:
             if instance.update() == "running":
                 break
-            time.sleep()
+            time.sleep(5)
         else:
             self.discard()
             raise ProviderValidationError(
                 "Instance did not become running within %f sec" % wait_limit)
         url = "http://%s:8000/" % instance.ip_address
+        print(url)
         # wait docker boot
-        wait_limit = 100
-        t_limit = time.clock() + wait_limit
-        while time.clock() < t_limit:
-            time.sleep(10)
+        wait_limit = 250
+        t_limit = time.time() + wait_limit
+        while time.time() < t_limit:
+            time.sleep(5)
             try:
                 urllib2.urlopen(url, "PING", 1).read()
-            except urllib2.URLError:
-                continue  # node not operating
             except urllib2.HTTPError:
                 return [url]  # expected response for a bogus request
+            except urllib2.URLError as exc:
+                print(exc)
+                continue  # node not operating
 
         # Handle boot failure cleanly
         self.discard()
@@ -166,10 +172,12 @@ class EC2Provider(object):
             "Instance did not boot within %f sec limit" % wait_limit)
 
     def discard(self):
-        self.conn.terminate_instances(self.resevation.instances)
+        self.conn.terminate_instances([self.reservation.instances[0].id])
         # wait destruction
         # TODO: additional test
 
+        # need to wait for instance removal, because SG deletion
+        # would fail because of the dependency.
         self.sg.delete()
 
     def _setup_sg(self):
@@ -179,6 +187,7 @@ class EC2Provider(object):
         """
         sgs = self.conn.get_all_security_groups()
         if any(sg.name == self.sg_name for sg in sgs):
+            return
             self.conn.delete_security_group(self.sg_name)
         self.sg = self.conn.create_security_group(
             self.sg_name,
