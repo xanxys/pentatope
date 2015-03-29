@@ -293,6 +293,14 @@ def render_movie(providers, in_path, out_path):
             provider.discard()
 
 
+def is_ffmpeg_installed():
+    try:
+        subprocess.check_output(["ffmpeg", "-version"])
+        return True
+    except OSError:
+        return False
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="""Render given animation.""",
@@ -325,6 +333,11 @@ if __name__ == '__main__':
 
     if args.aws is not None:
         aws_cred = json.load(open(args.aws))
+
+    if args.output_mp4:
+        if not is_ffmpeg_installed():
+            print("ffmpeg need to be installed on the system to use mp4 output")
+            sys.exit(1)
 
     if args.output_mp4 is None:
         print("You should specify one or more output format.", file=sys.stderr)
