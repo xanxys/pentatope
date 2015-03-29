@@ -26,6 +26,7 @@ import boto.ec2
 import random
 import subprocess
 import time
+import urllib2
 
 
 class IncompatibleAPIError(Exception):
@@ -113,6 +114,7 @@ class EC2Provider(object):
 
         self.price_per_hour = 0.232
         self.instance_type = 'c4.xlarge'
+        self.sg_name = "pentatope_sg"
 
     def calc_bill(self):
         return [(
@@ -120,7 +122,69 @@ class EC2Provider(object):
             self.price_per_hour)]
 
     def prepare(self):
-        pass
+        self._setup_sg()
+
+        boot_script = """
+        #!/bin/bash
+        docker pull xanxys/pentatope
+        docker run --detach=true --publish 8000:80 xanxys/pentatope /root/pentatope/pentatope
+        """
+        image_id = 'ami-d114f295'  # us-west-1
+        self.reservation = self.conn.run_instances(
+            image_id,
+            instance_type=self.instance_type,
+            security_groups=[self.sg_name],
+            user_data=boot_script)
+        instance = self.reservation.instances[0]
+        wait_limit = 100
+        t_limit = time.clock() + wait_limit
+        # wait boot
+        while time.clock() < t_limit:
+            if instance.update() == "running":
+                break
+            time.sleep()
+        else:
+            self.discard()
+            raise ProviderValidationError(
+                "Instance did not become running within %f sec" % wait_limit)
+        url = "http://%s:8000/" % instance.ip_address
+        # wait docker boot
+        wait_limit = 100
+        t_limit = time.clock() + wait_limit
+        while time.clock() < t_limit:
+            time.sleep(10)
+            try:
+                urllib2.urlopen(url, "PING", 1).read()
+            except urllib2.URLError:
+                continue  # node not operating
+            except urllib2.HTTPError:
+                return [url]  # expected response for a bogus request
+
+        # Handle boot failure cleanly
+        self.discard()
+        raise ProviderValidationError(
+            "Instance did not boot within %f sec limit" % wait_limit)
 
     def discard(self):
-        pass
+        self.conn.terminate_instances(self.resevation.instances)
+        # wait destruction
+        # TODO: additional test
+
+        self.sg.delete()
+
+    def _setup_sg(self):
+        """
+        Setup a security group that allows HTTP incoming packets
+        in a idempotent way.
+        """
+        sgs = self.conn.get_all_security_groups()
+        if any(sg.name == self.sg_name for sg in sgs):
+            self.conn.delete_security_group(self.sg_name)
+        self.sg = self.conn.create_security_group(
+            self.sg_name,
+            description="For workers in https://github.com/xanxys/pentatope")
+        self.sg.authorize(
+            ip_protocol="tcp",
+            from_port="8000",
+            to_port="8000",
+            cidr_ip="0.0.0.0/0")
