@@ -1,16 +1,10 @@
 #!/bin/python2
 from __future__ import print_function, division
 import argparse
-import sys
-from google.protobuf import text_format
-import numpy as np
 import math
-import os.path
-import multiprocessing
-import cv2
-import scipy.ndimage
-sys.path.append('build/proto')
+import numpy as np
 import render_task_pb2 as proto
+import scipy.ndimage
 
 
 def generate_fractal_noise(size, deterministic=False):

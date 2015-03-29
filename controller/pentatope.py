@@ -1,5 +1,8 @@
 #!/bin/python2
 from __future__ import print_function, division
+from provider import LocalProvider, EC2Provider, ProviderValidationError
+from render_server_pb2 import *
+from render_task_pb2 import *
 import argparse
 import json
 import os
@@ -9,10 +12,6 @@ import sys
 import tempfile
 import tornado.httpclient
 import urllib2
-from provider import LocalProvider, EC2Provider, ProviderValidationError
-sys.path.append('build/proto')
-from render_task_pb2 import *
-from render_server_pb2 import *
 
 
 class InvalidTaskError(Exception):

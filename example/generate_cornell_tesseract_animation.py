@@ -1,16 +1,15 @@
 #!/bin/python2
 from __future__ import print_function, division
-import argparse
-import sys
 from google.protobuf import text_format
-import numpy as np
-import math
-import os.path
-import tempfile
-import subprocess
-import multiprocessing
-sys.path.append('build/proto')
 from render_task_pb2 import *
+import argparse
+import math
+import multiprocessing
+import numpy as np
+import os.path
+import subprocess
+import sys
+import tempfile
 
 
 def setup_cornell_animation(duration, fps):

@@ -1,12 +1,10 @@
 #!/bin/python2
 from __future__ import print_function, division
 import argparse
-import sys
 import numpy as np
-import math
-import scene_nature
-sys.path.append('build/proto')
 import render_task_pb2 as proto
+import scene_nature
+import sys
 
 
 def camera_config_nature_duration():
