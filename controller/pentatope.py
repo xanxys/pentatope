@@ -279,6 +279,7 @@ def render_movie(providers, in_path, out_path):
             "-y",  # overwrite
             "-framerate", str(task.framerate),
             "-i", os.path.join(images_path_prefix, "frame-%06d.png"),
+            "-pix_fmt", "yuv444p",
             "-crf", "18",  # visually lossless
             "-c:v", "libx264",
             "-loglevel", "warning",
@@ -316,7 +317,7 @@ if __name__ == '__main__':
         help="Encode the results as H264/mp4.",
         type=str, default=None)
 
-    # Validation
+    # Validate.
     args = parser.parse_args()
     if not args.local and args.aws is None:
         print("You must specify at least one computation platform.", file=sys.stderr)
@@ -329,55 +330,27 @@ if __name__ == '__main__':
         print("You should specify one or more output format.", file=sys.stderr)
         sys.exit(1)
 
-    # 1 minute clip @ 60fps, 1080p, 100sample/px
-#     n_samples = 60 * 60 * 1920 * 1080 * 100
-#     est = plan_action(n_samples)
+    # Create resource providers and show cost estimate.
+    providers = []
+    if args.local:
+        providers.append(LocalProvider())
+    if args.aws is not None:
+        raise NotImplementedError("--aws is not implemented yet")
 
-#     print("== Estimated Time & Price ==")
-#     print("* time: %.1f hour" % est["time"])
-#     print("* price: %.1f USD" % est["price"])
-#     print("== Price Breakup ==")
-#     print("* AWS EC2: %s, %s, spot %d nodes" %
-#         (est["ec2"]["type"], est["ec2"]["region"], est["ec2"]["n_instances"]))
-
-#     while True:
-#         result = raw_input("Do you want to proceed? (y/n)")
-#         if result == 'y':
-#             break
-#         elif result == 'n':
-#             sys.exit(0)
-
-#     print("Running tasks")
-#     # run_task()
-
-# #    boto.config.add_section("Credentials")
-# #    boto.config.set('Credentials', 'aws_access_key_id',
-# #        aws_cred["access_key"])
-# #    boto.config.set('Credentials', 'aws_secret_access_key',
-# #        aws_cred["secret_access_key"])
-#     region = boto.ec2.connect_to_region(
-#         "ap-northeast-1",
-#         #est["ec2"]["region"],
-#         aws_access_key_id=aws_cred["access_key"],
-#         aws_secret_access_key=aws_cred["secret_access_key"])
-#     if region is None:
-#         raise RuntimeError("Couldn't connect to %s" % est["ec2"]["region"])
-
-#     spot_req = region.request_spot_instances(
-#         "0.1",
-#         est["ec2"]["ami"],
-#         key_name=None,
-#         security_groups=None,
-#         instance_type="t1.micro")
-#     print(spot_req)
-
-#     while True:
-#         print(spot_req.state)
-#         time.sleep(1)
-
-    providers = [LocalProvider()]
-
+    print('{:=^80}'.format(" Estimated Price "))
+    total_price = 0
     for provider in providers:
-        print(provider.calc_bill())
+        for bill in provider.calc_bill():
+            total_price += bill[1]
+            print("{0:<65}|{1:>10.2f} USD".format(*bill))
+    print('-' * 80)
+    print("{:>76.2f} USD".format(total_price))
+
+    # Ask to proceed.
+    print("Are you sure? [y/N]", end='')
+    sys.stdout.flush()
+    if sys.stdin.readline().strip() != 'y':
+        print("Aborted.")
+        sys.exit(0)
 
     render_movie(providers, args.input, args.output_mp4)
