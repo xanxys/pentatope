@@ -1,29 +1,18 @@
 #!/bin/python2
 from __future__ import print_function, division
 import argparse
-import boto
-import boto.ec2
 import json
-import math
 import os
-import random
 import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import tornado.httpclient
 import urllib2
+from provider import LocalProvider, EC2Provider, ProviderValidationError
 sys.path.append('build/proto')
 from render_task_pb2 import *
 from render_server_pb2 import *
-
-
-class IncompatibleAPIError(Exception):
-    """
-    Raised when (often unofficial) API changes.
-    """
-    pass
 
 
 class InvalidTaskError(Exception):
@@ -31,89 +20,6 @@ class InvalidTaskError(Exception):
     Raised when user-specified task is un-executable.
     """
     pass
-
-
-class AWSPrice(object):
-    """
-    An abstract object that holds current AWS prices.
-    """
-    def __init__(self):
-        self.ec2_spot = self._get_ec2_spot()
-
-    def _get_ec2_spot(self):
-        result = urllib2.urlopen("https://spot-price.s3.amazonaws.com/spot.js").read()
-        # Strip non-JSON things.
-        prefix = "callback("
-        postfix = ")"
-        if not result.startswith(prefix) or not result.endswith(postfix):
-            raise IncompatibleAPIError()
-        result = result[len(prefix):-len(postfix)]
-        # 
-        try:
-            return json.loads(result)
-        except ValueError as exc:
-            raise IncompatibleAPIError("Expecting json %s" % exc)
-
-    def get_ec2_spot(self, query_instance):
-        """
-        Return [(region name, price in USD)]
-        """
-        results = []
-        try:
-            for region in self.ec2_spot["config"]["regions"]:
-                region
-                for types in region["instanceTypes"]:
-                    if types["type"] != "computeCurrentGen":
-                        continue
-                    for ty in types["sizes"]:
-                        if ty["size"] != query_instance:
-                            continue
-                        for vals in ty["valueColumns"]:
-                            if vals["name"] != "linux":
-                                continue
-                            results.append((
-                                region["region"], float(vals["prices"]["USD"])))
-        except KeyError:
-            raise IncompatibleAPIError("AWS price table format has changed")
-        if len(results) == 0:
-            raise IncompatibleAPIError(
-                "AWS price table format has changed, or specified instance is no longer available.")
-        return results
-
-
-def plan_action(n_samples):
-    """
-    Current computation is number of samples
-    (= #frames * pixel/frame * sample/pixel)
-    """
-    # TODO: measure it accurately
-    inst_type = "c3.8xlarge"
-    samples_per_hour = 32 * 3600 * 1000 * 1000
-
-    aws_price = AWSPrice()
-    spot = aws_price.get_ec2_spot(inst_type)
-
-    # Amazon Linux (HVM, instance-store), 2014.09.1
-    # https://aws.amazon.com/jp/amazon-linux-ami/
-    amis = {
-        "us-east": "ami-0268d56a",
-        "apac-tokyo": "ami-8985b088"
-    }
-
-    spot = [(reg, pr) for (reg, pr) in spot if reg in amis]
-    best_spot = min(spot, key=lambda (region, price): price)
-    n_instances = int(math.ceil(n_samples / samples_per_hour))
-
-    return {
-        "ec2": {
-            "type": inst_type + " (spot)",
-            "region": best_spot[0],
-            "ami": amis[best_spot[0]],
-            "n_instances": n_instances
-        },
-        "price": best_spot[1] * n_instances,
-        "time": n_samples / (n_instances * samples_per_hour)
-    }
 
 
 def run_task():
@@ -172,55 +78,6 @@ def run_task():
     print("Encoding the results")
 
     print("Done! Results written to hogehoge")
-
-
-class LocalProvider(object):
-    """
-    Provides local pentatope instances.
-    LocalProvier assumes docker to be installed on the local system,
-    and sudo works without password.
-    """
-    def calc_bill(self):
-        return [
-            ("This machine", 0)]
-
-    def prepare(self):
-        self.image_name = "xanxys/pentatope-dev"
-        self.container_name = "pentatope_local_worker_%d" % random.randint(0, 1000)
-        self.port = random.randint(35000, 50000)
-
-        result = subprocess.check_output([
-            "sudo", "docker", "run",
-            "--detach=true",
-            "--volume", "/home/xyx/repos/pentatope:/root/local",
-            "--name", self.container_name,
-            "--publish", "%d:80" % self.port,
-            self.image_name,
-            "/root/local/build/pentatope"])
-        self.container_id = result.decode('utf-8').strip()
-        time.sleep(1)  # wait server boot
-        return ["http://localhost:%d/" % self.port]
-
-    def discard(self):
-        subprocess.call([
-            "sudo", "docker", "rm", "-f", self.container_id])
-
-
-class EC2Provider(object):
-    """
-    Provides remote pentatope instances on AWS EC2.
-    """
-    def __init__(self, credentials):
-        pass
-
-    def calc_bill(self):
-        pass
-    
-    def prepare(self):
-        pass
-
-    def discard(self):
-        pass
 
 
 def render_movie(providers, in_path, out_path):
@@ -327,16 +184,9 @@ if __name__ == '__main__':
 
     # Validate.
     args = parser.parse_args()
-    if not args.local and args.aws is None:
-        print("You must specify at least one computation platform.", file=sys.stderr)
-        sys.exit(1)
-
-    if args.aws is not None:
-        aws_cred = json.load(open(args.aws))
-
     if args.output_mp4:
         if not is_ffmpeg_installed():
-            print("ffmpeg need to be installed on the system to use mp4 output")
+            print("ffmpeg need to be installed to use mp4 output")
             sys.exit(1)
 
     if args.output_mp4 is None:
@@ -346,9 +196,26 @@ if __name__ == '__main__':
     # Create resource providers and show cost estimate.
     providers = []
     if args.local:
-        providers.append(LocalProvider())
+        try:
+            providers.append(LocalProvider())
+        except ProviderValidationError as exc:
+            print("Canot use local machine because %s" % exc)
+
     if args.aws is not None:
-        raise NotImplementedError("--aws is not implemented yet")
+        try:
+            aws_credential = json.load(open(args.aws))
+            try:
+                providers.append(EC2Provider(aws_credential))
+            except ProviderValidationError as exc:
+                print("Cannot use AWS because %s" % exc)
+        except:
+            print("Failed to open AWS credential, ignoring --aws.")
+
+    if not providers:
+        print(
+            "You must specify at least one usable computation provider.",
+            file=sys.stderr)
+        sys.exit(1)
 
     print('{:=^80}'.format(" Estimated Price "))
     total_price = 0
