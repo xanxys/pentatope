@@ -31,7 +31,7 @@ class TestSceneExamples(unittest.TestCase):
         assert(temp_dir_name != '')
         self.temp_dir_inside = os.path.join("/root/local", temp_dir_name)
 
-        self.image_name = "xanxys/pentatope-dev"
+        self.image_name = "xanxys/pentatope-prod"
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
@@ -42,9 +42,9 @@ class TestSceneExamples(unittest.TestCase):
             "--tty=true",
             "--interactive=true",
             "--rm",
-            "--volume", "/home/xyx/repos/pentatope:/root/local",
+            "--volume", "%s:/root/local" % os.getcwd(),
             self.image_name,
-            "/root/local/build/pentatope"] + args)
+            "/root/pentatope/pentatope"] + args)
 
     def test_anim_demo(self):
         subprocess.call([
@@ -76,18 +76,17 @@ class TestSceneExamples(unittest.TestCase):
 
 class TestPentatopeServer(unittest.TestCase):
     def setUp(self):
-        self.image_name = "xanxys/pentatope-dev"
+        self.image_name = "xanxys/pentatope-prod"
         self.container_name = "pentatope_test_smoke"
         self.port = random.randint(35000, 50000)
 
         result = subprocess.check_output([
             "sudo", "docker", "run",
             "--detach=true",
-            "--volume", "/home/xyx/repos/pentatope:/root/local",
             "--name", self.container_name,
             "--publish", "%d:80" % self.port,
             self.image_name,
-            "/root/local/build/pentatope"],
+            "/root/pentatope/pentatope"],
             stderr=subprocess.STDOUT)
         self.container_id = result.decode('utf-8').strip()
         time.sleep(1)  # wait server boot

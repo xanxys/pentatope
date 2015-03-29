@@ -2,6 +2,7 @@
 .sconsign.dblite
 build/
 build-temp/
+docker/pentatope
 controller/*_pb2.py
 example/*_pb2.py
 *.pyc
