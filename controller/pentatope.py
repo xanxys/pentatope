@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import tornado.httpclient
+import traceback
 import urllib2
 
 
@@ -115,8 +116,11 @@ def render_movie(providers, in_path, out_path):
             render_request.task.CopyFrom(task_frame)
 
             print('Rendering frame %d of %d' % (i_frame + 1, len(task.frames)))
+            # Because Python2 is broken (i.e. no bytes type),
+            # we cannot pass unicode URL. Otherwise, it will try to parse
+            # data as utf-8 and fail.
             response = urllib2.urlopen(
-                instances[0],
+                instances[0].encode('ascii'),
                 render_request.SerializeToString(),
                 300).read()
             render_response = RenderResponse()
@@ -143,6 +147,9 @@ def render_movie(providers, in_path, out_path):
             out_path]
         print('Encoding with command: %s' % command)
         subprocess.check_call(command)
+    except BaseException:
+        print("Error happened during rendering. exiting.")
+        traceback.print_exc()
     finally:
         shutil.rmtree(images_path_prefix)
         for provider in providers:
