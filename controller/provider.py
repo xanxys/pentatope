@@ -112,8 +112,10 @@ class EC2Provider(object):
         except boto.exception.EC2ResponseError as exc:
             raise ProviderValidationError(exc)
 
-        self.price_per_hour = 0.232
-        self.instance_type = 'c4.xlarge'
+        # self.price_per_hour = 0.232
+        # self.instance_type = 'c4.xlarge'
+        self.price_per_hour = 0.116
+        self.instance_type = 'c4.large'
         self.sg_name = "pentatope_sg"
 
     def calc_bill(self):
@@ -173,22 +175,15 @@ class EC2Provider(object):
 
     def discard(self):
         self.conn.terminate_instances([self.reservation.instances[0].id])
-        # wait destruction
-        # TODO: additional test
-
-        # need to wait for instance removal, because SG deletion
-        # would fail because of the dependency.
-        self.sg.delete()
+        self._clean_sg()
 
     def _setup_sg(self):
         """
         Setup a security group that allows HTTP incoming packets
         in a idempotent way.
         """
-        sgs = self.conn.get_all_security_groups()
-        if any(sg.name == self.sg_name for sg in sgs):
-            return
-            self.conn.delete_security_group(self.sg_name)
+        self._clean_sg()
+        # Create
         self.sg = self.conn.create_security_group(
             self.sg_name,
             description="For workers in https://github.com/xanxys/pentatope")
@@ -197,3 +192,18 @@ class EC2Provider(object):
             from_port="8000",
             to_port="8000",
             cidr_ip="0.0.0.0/0")
+
+    def _clean_sg(self):
+        """
+        Remove the pentatope security group in a idempotent way.
+        """
+        while True:
+            sgs = self.conn.get_all_security_groups()
+            if all(sg.name != self.sg_name for sg in sgs):
+                break  # no existing SG
+            try:
+                self.conn.delete_security_group(self.sg_name)
+            except boto.exception.EC2ResponseError:
+                pass  # dependency error is expected, because instance termination is slow
+            finally:
+                time.sleep(5)
