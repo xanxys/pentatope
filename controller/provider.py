@@ -68,7 +68,7 @@ class LocalProvider(object):
             ("This machine", 0)]
 
     def prepare(self):
-        self.image_name = "xanxys/pentatope-dev"
+        self.image_name = "xanxys/pentatope-prod"
         self.container_name = "%s_%d" % (
             "pentatope_local_worker",
             random.randint(0, 1000))
@@ -77,11 +77,10 @@ class LocalProvider(object):
         result = subprocess.check_output([
             "sudo", "docker", "run",
             "--detach=true",
-            "--volume", "/home/xyx/repos/pentatope:/root/local",
             "--name", self.container_name,
             "--publish", "%d:80" % self.port,
             self.image_name,
-            "/root/local/build/pentatope"])
+            "/root/pentatope/pentatope"])
         self.container_id = result.decode('utf-8').strip()
         time.sleep(1)  # wait server boot
         return ["http://localhost:%d/" % self.port]
