@@ -33,7 +33,7 @@ Although `./build.sh` will checkout latest commit (inside a container) and
 build images based on it, it's too time-consuming for rapid iterations.
 
 You can use `xanxys/pentatope-dev` image and mounting local directory inside
-a container. (e.g. `sudo docker run -t -i --rm -v $(pwd):/root/local xanxys/pentatope-dev -p 8080:80 bash`)
+a container. (e.g. `sudo docker run -t -i --rm -v $(pwd):/root/local -p 8080:80 xanxys/pentatope-dev bash`)
 
 
 ## References
