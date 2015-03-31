@@ -15,12 +15,22 @@ RUN apt-get install -y \
     python-numpy python-scipy \
     nano scons cmake make git clang valgrind; \
     apt-get clean; \
+    # go1.4
+    curl https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | \
+        tar -C /usr/local -xzf -; \
     # gtest library build
     cp -R /usr/src/gtest /root/gtest; \
     cd /root/gtest; \
     cmake .; \
     make -j 4; \
     cp libgtest.a libgtest_main.a /usr/lib/x86_64-linux-gnu/
+
+ENV PATH $PATH:/usr/local/go/bin
+ENV GOPATH /root/go
+
+# Go libraries
+RUN github.com/awslabs/aws-sdk-go; \
+    go get github.com/vaughan0/go-ini
 
 # Get Project and compile
 RUN cd /root; \
