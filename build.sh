@@ -1,5 +1,16 @@
 #!/bin/bash
-set -e  # exit immediately after error
+# This code creates 3 container images:
+# 1 base: provides runtime libraries
+# 2. dev (built on base), used for compilation and debugging
+# 3. prod (built on base), used for running nodes on EC2 or local machine.
+# 
+# then, it uploads prod image as xanxys/dev to dockerhub for EC2 deployment.
+#
+# prod is used both for running C++ worker code in EC2 and running controller
+# locally, but one image does both because binaries are pretty small and
+# we don't want to increase complexity for tiny reduction in image size.
+#
+set -e  # exit immediately after an error
 
 echo "Creating base (1/4)"
 sudo docker build -t xanxys/pentatope-base -f docker/base ./docker

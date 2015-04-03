@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/exec"
 
-	//	"github.com/awslabs/aws-sdk-go/aws"
-	//"github.com/awslabs/aws-sdk-go/service/ec2"
+	"github.com/awslabs/aws-sdk-go/aws"
+	"github.com/awslabs/aws-sdk-go/service/ec2"
 )
 
 /*
@@ -73,11 +73,11 @@ func (provider *EC2Provider) Discard() {
 func (provider *EC2Provider) CalcBill() (string, float64) {
 	const pricePerHour = 1.856
 	const instanceType = "c4.8xlarge"
-    /*# self.price_per_hour = 0.232
-    # self.instance_type = 'c4.xlarge'
-    # self.price_per_hour = 0.116
-    # self.instance_type = 'c4.large'*/
-    return fmt.Sprintf("EC2 on-demand instance (%s) * 1", instanceType), pricePerHour
+	/*# self.price_per_hour = 0.232
+	  # self.instance_type = 'c4.xlarge'
+	  # self.price_per_hour = 0.116
+	  # self.instance_type = 'c4.large'*/
+	return fmt.Sprintf("EC2 on-demand instance (%s) * 1", instanceType), pricePerHour
 }
 
 type AWSCredential struct {
@@ -87,19 +87,19 @@ type AWSCredential struct {
 
 func main() {
 	// Resource providers.
-	local := flag.Bool("local", false, "Use this machine.")
-	aws := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
+	localFlag := flag.Bool("local", false, "Use this machine.")
+	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
 	// I/O
 	input := flag.String("input", "", "Input .pb file containing an animation.")
 	output_mp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
 	flag.Parse()
 
 	var providers []Provider
-	if *local {
+	if *localFlag {
 		providers = append(providers, new(LocalProvider))
 	}
-	if *aws != "" {
-		awsJson, err := ioutil.ReadFile(*aws)
+	if *awsFlag != "" {
+		awsJson, err := ioutil.ReadFile(*awsFlag)
 		if err != nil {
 			fmt.Println("Ignoring AWS because credential file was not found.")
 		} else {
@@ -115,6 +115,8 @@ func main() {
 
 	//
 	fmt.Println(input, output_mp4)
+
+	ec2.New(&aws.Config{Region: "us-west-1"})
 
 	// fmt.Println("Hello World", *local, *aws, *input, *output_mp4, "FFMPEG:", is_ffmpeg_installed())
 }

@@ -111,10 +111,12 @@ class EC2Provider(object):
         except boto.exception.EC2ResponseError as exc:
             raise ProviderValidationError(exc)
 
+        self.price_per_hour = 1.856
+        self.instance_type = 'c4.8xlarge'
         # self.price_per_hour = 0.232
         # self.instance_type = 'c4.xlarge'
-        self.price_per_hour = 0.116
-        self.instance_type = 'c4.large'
+        # self.price_per_hour = 0.116
+        # self.instance_type = 'c4.large'
         self.sg_name = "pentatope_sg"
 
     def calc_bill(self):

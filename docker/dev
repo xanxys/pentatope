@@ -29,7 +29,7 @@ ENV PATH $PATH:/usr/local/go/bin
 ENV GOPATH /root/go
 
 # Go libraries
-RUN github.com/awslabs/aws-sdk-go; \
+RUN go get github.com/awslabs/aws-sdk-go; \
     go get github.com/vaughan0/go-ini
 
 # Get Project and compile
