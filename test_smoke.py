@@ -44,7 +44,7 @@ class TestSceneExamples(unittest.TestCase):
             "--rm",
             "--volume", "%s:/root/local" % os.getcwd(),
             self.image_name,
-            "/root/pentatope/pentatope"] + args)
+            "/root/pentatope/worker"] + args)
 
     def test_anim_demo(self):
         subprocess.call([
@@ -86,7 +86,7 @@ class TestPentatopeServer(unittest.TestCase):
             "--name", self.container_name,
             "--publish", "%d:80" % self.port,
             self.image_name,
-            "/root/pentatope/pentatope"],
+            "/root/pentatope/worker"],
             stderr=subprocess.STDOUT)
         self.container_id = result.decode('utf-8').strip()
         time.sleep(1)  # wait server boot

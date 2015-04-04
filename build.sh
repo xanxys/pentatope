@@ -28,11 +28,12 @@ sudo docker run --rm \
 sudo chmod -R a+rw build-temp
 
 # Create prod image by copying only the binary
-cp build-temp/pentatope docker/
+cp build-temp/worker/worker docker/
+cp build-temp/controller/controller docker/
 sudo docker build -t xanxys/pentatope-prod -f docker/prod ./docker
 
 # Copy python proto files to local directories (controller & example)
-cp build-temp/proto/*.py controller/
+cp build-temp/controller/controller ./pentatope_controller
 cp build-temp/proto/*.py example/
 
 # Remove build artifacts immediately because they're not runnable outside
