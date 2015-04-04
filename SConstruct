@@ -26,8 +26,8 @@ env.Command(
 proto_files_cc = [f for f in proto_files if f.name.endswith('.pb.cc')]
 
 SConscript(
-    'src/SConscript',
-    variant_dir='build/src',
+    'worker/SConscript',
+    variant_dir='build/worker',
     exports=['proto_files_cc'])
 SConscript(
     'controller/SConscript',
