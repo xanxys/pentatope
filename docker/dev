@@ -36,4 +36,4 @@ RUN go get github.com/awslabs/aws-sdk-go; \
 RUN cd /root; \
     git clone --depth=1 https://github.com/xanxys/pentatope; \
     cd pentatope; \
-    scons -j 8
+    scons -j 8; \

@@ -4,6 +4,7 @@ build/
 build-temp/
 docker/pentatope
 controller/*_pb2.py
+controller/controller
 example/*_pb2.py
 *.pyc
 # Sublime project

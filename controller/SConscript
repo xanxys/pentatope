@@ -1,0 +1,12 @@
+
+env = Environment(
+    ENV={
+        "CGO_ENABLED": "0",
+        "GOPATH": "/root/go"
+    })
+
+
+env.Command(
+    ['controller'],
+    ['main.go'],
+    '/usr/local/go/bin/go build -o $TARGET -a -installsuffix cgo $SOURCE')

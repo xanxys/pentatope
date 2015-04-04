@@ -27,5 +27,8 @@ proto_files_cc = [f for f in proto_files if f.name.endswith('.pb.cc')]
 
 SConscript(
     'src/SConscript',
-    variant_dir='build',
+    variant_dir='build/src',
     exports=['proto_files_cc'])
+SConscript(
+    'controller/SConscript',
+    variant_dir='build/controller')

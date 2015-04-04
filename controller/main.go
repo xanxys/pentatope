@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/awslabs/aws-sdk-go/aws"
 	"github.com/awslabs/aws-sdk-go/service/ec2"
@@ -36,22 +40,33 @@ type Provider interface {
 }
 
 type LocalProvider struct {
-	server *exec.Cmd
+	containerId string
 }
 
 type EC2Provider struct {
 }
 
 func (provider *LocalProvider) Prepare() []string {
-	server := exec.Command("/root/pentatope/pentatope")
-	server.Start()
+	container_name := fmt.Sprintf("pentatope_local_worker_%d", rand.Intn(1000))
+	port := 20000 + rand.Intn(10000)
+	cmd := exec.Command("sudo", "docker", "run",
+		"--detach=true",
+		"--name", container_name,
+		"--publish", fmt.Sprintf("%d:80", port),
+		"xanxys/pentatope-prod",
+		"/root/pentatope/pentatope")
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Run()
+	provider.containerId = out.String()
 	urls := make([]string, 1)
-	urls[0] = "http://localhost"
+	urls[0] = fmt.Sprintf("http://localhost:%d/", port)
 	return urls
 }
 
 func (provider *LocalProvider) Discard() {
-	provider.server.Process.Kill()
+	exec.Command("sudo", "docker", "rm", "-f", provider.containerId).Run()
 }
 
 func (provider *LocalProvider) CalcBill() (string, float64) {
@@ -64,6 +79,7 @@ func NewEC2Provider(credential AWSCredential) *EC2Provider {
 }
 
 func (provider *EC2Provider) Prepare() []string {
+	ec2.New(&aws.Config{Region: "us-west-1"})
 	return nil
 }
 
@@ -91,7 +107,7 @@ func main() {
 	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
 	// I/O
 	input := flag.String("input", "", "Input .pb file containing an animation.")
-	output_mp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
+	outputMp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
 	flag.Parse()
 
 	var providers []Provider
@@ -114,9 +130,32 @@ func main() {
 	}
 
 	//
-	fmt.Println(input, output_mp4)
+	fmt.Println("==================== Estimated Price ====================")
+	total_price := 0.0
+	for _, provider := range providers {
+		name, price := provider.CalcBill()
+		fmt.Printf("%s  %f USD\n", name, price)
+		total_price += price
+	}
+	fmt.Println("---------------------------------------------------------")
+	fmt.Printf("%f USD\n", total_price)
 
-	ec2.New(&aws.Config{Region: "us-west-1"})
+	// Get user confirmation before any possible expense.
+	fmt.Print("Are you sure? [y/N]")
+	os.Stdout.Sync()
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	if strings.TrimSpace(answer) != "y" {
+		os.Exit(0)
+	}
 
-	// fmt.Println("Hello World", *local, *aws, *input, *output_mp4, "FFMPEG:", is_ffmpeg_installed())
+	// Run task.
+	for _, provider := range providers {
+		provider.Prepare()
+	}
+
+	for _, provider := range providers {
+		provider.Discard()
+	}
+
+	fmt.Println(input, outputMp4)
 }

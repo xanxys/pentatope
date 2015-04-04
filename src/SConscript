@@ -17,6 +17,7 @@ env = Environment(
     CCFLAGS=cc_flags,
     CPPPATH=[
         '/usr/include/eigen3',
+        '../',
         './',
     ],
     LIBPATH=[
