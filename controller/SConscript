@@ -1,3 +1,4 @@
+Import('proto_files_go')
 
 env = Environment(
     ENV={
@@ -9,4 +10,6 @@ env = Environment(
 env.Command(
     ['controller'],
     ['main.go'],
-    '/usr/local/go/bin/go build -o $TARGET -a -installsuffix cgo $SOURCE')
+    '/usr/local/go/bin/go build -o $TARGET -a -installsuffix cgo $SOURCES')
+
+env.Depends("controller", proto_files_go)

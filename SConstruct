@@ -3,27 +3,26 @@ import os.path
 env = Environment()
 
 # manually emulate variant dir
-proto_files = env.Command(
-    ['build/proto/render_task.pb.cc', 'build/proto/render_task.pb.h'],
-    ['proto/render_task.proto'],
-    'protoc --proto_path=proto --cpp_out=build/proto $SOURCE')
+proto_files = []
 
-env.Command(
-    ['build/proto/render_task_pb2.py'],
-    ['proto/render_task.proto'],
-    'protoc --proto_path=proto --python_out=build/proto $SOURCE')
+for name in ["render_task", "render_server"]:
+    proto_files += env.Command(
+        ['build/proto/%s.pb.cc' % name, 'build/proto/%s.pb.h' % name],
+        ['proto/%s.proto' % name],
+        'protoc --proto_path=proto --cpp_out=build/proto $SOURCE')
+
+    proto_files += env.Command(
+        ['build/proto/%s_pb2.py' % name],
+        ['proto/%s.proto' % name],
+        'protoc --proto_path=proto --python_out=build/proto $SOURCE')
 
 proto_files += env.Command(
-    ['build/proto/render_server.pb.cc', 'build/proto/render_server.pb.h'],
-    ['proto/render_server.proto'],
-    'protoc --proto_path=proto --cpp_out=build/proto $SOURCE')
-
-env.Command(
-    ['build/proto/render_server_pb2.py'],
-    ['proto/render_server.proto'],
-    'protoc --proto_path=proto --python_out=build/proto $SOURCE')
+    ['build/controller/pentatope/%s.pb.go' % name],
+    Glob("proto/*.proto"),
+    'protoc --proto_path=proto --gogo_out=build/controller/pentatope proto/*')
 
 proto_files_cc = [f for f in proto_files if f.name.endswith('.pb.cc')]
+proto_files_go = [f for f in proto_files if f.name.endswith('.pb.go')]
 
 SConscript(
     'worker/SConscript',
@@ -31,4 +30,5 @@ SConscript(
     exports=['proto_files_cc'])
 SConscript(
     'controller/SConscript',
-    variant_dir='build/controller')
+    variant_dir='build/controller',
+    exports=['proto_files_go'])

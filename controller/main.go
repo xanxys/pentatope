@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,9 +12,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"code.google.com/p/gogoprotobuf/proto"
 	"github.com/awslabs/aws-sdk-go/aws"
 	"github.com/awslabs/aws-sdk-go/service/ec2"
 )
+
+import pentatope "./pentatope"
 
 /*
 Provider is an abstract entity that:
@@ -147,6 +150,15 @@ func main() {
 	if strings.TrimSpace(answer) != "y" {
 		os.Exit(0)
 	}
+
+
+	data := make([]byte, 0)
+	task := &pentatope.RenderMovieTask{}
+	proto.Unmarshal(data, task)
+
+	request := &pentatope.RenderRequest{}
+	proto.Marshal(request)
+
 
 	// Run task.
 	for _, provider := range providers {
