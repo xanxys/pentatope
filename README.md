@@ -12,8 +12,11 @@ heavy influence of [pbrt](http://www.pbrt.org/).
 
 
 ## Project Structure
-* `src/`: contains C++ code for worker node (runs on AWS)
-* `controller/`: contains python code for controller (runs on your PC)
+* `worker/`: C++ server code for worker node (runs in docker, either on AWS or on your local PC)
+* `controller/`: Go client code for controller (runs on your PC natively)
+* `docker/`: multiple dockerfiles for compiling(debugging), running, and common utils
+* `example/`: generator of `RenderTask` or `RenderMovieTask` for various scenes
+* `proto/`: serialization used everywhere (e.g. worker<->controller and example<->worker)
 
 ## Usage
 Run `./build.sh`. It will create 3 docker images and run tests etc.
