@@ -104,6 +104,53 @@ type AWSCredential struct {
 	secret_access_key string
 }
 
+// Ask user whether given billing plan is ok or not in CUI.
+func askBillingPlan(providers []Provider) bool {
+	fmt.Println("==================== Estimated Price ====================")
+	total_price := 0.0
+	for _, provider := range providers {
+		name, price := provider.CalcBill()
+		fmt.Printf("%s  %f USD\n", name, price)
+		total_price += price
+	}
+	fmt.Println("---------------------------------------------------------")
+	fmt.Printf("%f USD\n", total_price)
+
+	// Get user confirmation before any possible expense.
+	fmt.Print("Are you sure? [y/N]")
+	os.Stdout.Sync()
+	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	return strings.TrimSpace(answer) == "y"
+}
+
+func render(providers []Provider, inputFile string, outputMp4File string) {
+	// Generate RenderRequest from inputFile.
+	taskRaw, err := ioutil.ReadFile(inputFile)
+	if err != nil {
+		fmt.Println("Aborting because", err)
+		return
+	}
+	task := &pentatope.RenderMovieTask{}
+	err = proto.Unmarshal(taskRaw, task)
+	if err != nil {
+		fmt.Println("Input file is invalid as RenverMovieTask")
+		return
+	}
+
+	request := &pentatope.RenderRequest{}
+
+	proto.Marshal(request)
+
+	// Run task.
+	for _, provider := range providers {
+		provider.Prepare()
+		defer provider.Discard()
+	}
+
+
+}
+
+
 func main() {
 	// Resource providers.
 	localFlag := flag.Bool("local", false, "Use this machine.")
@@ -132,42 +179,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	//
-	fmt.Println("==================== Estimated Price ====================")
-	total_price := 0.0
-	for _, provider := range providers {
-		name, price := provider.CalcBill()
-		fmt.Printf("%s  %f USD\n", name, price)
-		total_price += price
-	}
-	fmt.Println("---------------------------------------------------------")
-	fmt.Printf("%f USD\n", total_price)
-
-	// Get user confirmation before any possible expense.
-	fmt.Print("Are you sure? [y/N]")
-	os.Stdout.Sync()
-	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	if strings.TrimSpace(answer) != "y" {
+	if !askBillingPlan(providers) {
 		os.Exit(0)
 	}
 
-
-	data := make([]byte, 0)
-	task := &pentatope.RenderMovieTask{}
-	proto.Unmarshal(data, task)
-
-	request := &pentatope.RenderRequest{}
-	proto.Marshal(request)
-
-
-	// Run task.
-	for _, provider := range providers {
-		provider.Prepare()
-	}
-
-	for _, provider := range providers {
-		provider.Discard()
-	}
-
-	fmt.Println(input, outputMp4)
+	render(providers, *input, *outputMp4)
 }
