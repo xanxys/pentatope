@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
 	"code.google.com/p/gogoprotobuf/proto"
@@ -136,20 +138,63 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		fmt.Println("Input file is invalid as RenverMovieTask")
 		return
 	}
+	if len(task.Frames) == 0 {
+		fmt.Println("One or more frames required")
+		return
+	}
 
-	request := &pentatope.RenderRequest{}
-
-	proto.Marshal(request)
-
-	// Run task.
+	// Prepare providers.
 	for _, provider := range providers {
 		provider.Prepare()
 		defer provider.Discard()
 	}
+	// Prepare output directory.
+	imageDir, err := ioutil.TempDir("", "penc")
+	if err != nil {
+		fmt.Println("Failed to create a temporary image directory", err)
+		return
+	}
+	defer os.RemoveAll(imageDir)
 
+	// Render frame-by-frame.
+	for ix, frameConfig := range task.Frames {
+		taskFrame := &pentatope.RenderTask{}
+		taskFrame.SamplePerPixel = task.SamplePerPixel
+		taskFrame.Scene = task.Scene
+		taskFrame.Camera = frameConfig
 
+		request := &pentatope.RenderRequest{}
+		request.Task = taskFrame
+
+		requestRaw, err := proto.Marshal(request)
+		respHttp, err := http.Post("http://localhost/",
+			"application/x-protobuf", bytes.NewReader(requestRaw))
+		if err != nil {
+			fmt.Println("Error reported when rendering frame", ix, err)
+			continue
+		}
+
+		resp := &pentatope.RenderResponse{}
+		respRaw, err := ioutil.ReadAll(respHttp.Body)
+		respHttp.Body.Close()
+
+		err = proto.Unmarshal(respRaw, resp)
+		if err != nil {
+			fmt.Println("Invalid proto received from worker", err)
+			continue
+		}
+		if !*resp.IsOk {
+			fmt.Println("Error in worker", resp.ErrorMessage)
+			continue
+		}
+
+		imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", ix))
+		ioutil.WriteFile(imagePath, resp.Output, 0777)
+	}
+
+	// Encode
+	fmt.Println("Done! (TODO: encode with ffmpeg)")
 }
-
 
 func main() {
 	// Resource providers.
