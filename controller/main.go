@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"code.google.com/p/gogoprotobuf/proto"
 	"github.com/awslabs/aws-sdk-go/aws"
@@ -59,19 +60,22 @@ func (provider *LocalProvider) Prepare() []string {
 		"--name", container_name,
 		"--publish", fmt.Sprintf("%d:80", port),
 		"xanxys/pentatope-prod",
-		"/root/pentatope/pentatope")
+		"/root/pentatope/worker")
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Run()
-	provider.containerId = out.String()
+	provider.containerId = strings.TrimSpace(out.String())
 	urls := make([]string, 1)
 	urls[0] = fmt.Sprintf("http://localhost:%d/", port)
 	return urls
 }
 
 func (provider *LocalProvider) Discard() {
-	exec.Command("sudo", "docker", "rm", "-f", provider.containerId).Run()
+	err := exec.Command("sudo", "docker", "rm", "-f", provider.containerId).Run()
+	if err != nil {
+		fmt.Println("Container clean up failed. You may need to clean up docker container manually ", err)
+	}
 }
 
 func (provider *LocalProvider) CalcBill() (string, float64) {
@@ -144,8 +148,9 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 
 	// Prepare providers.
+	urls := make([]string, 0)
 	for _, provider := range providers {
-		provider.Prepare()
+		urls = append(urls, provider.Prepare()...)
 		defer provider.Discard()
 	}
 	// Prepare output directory.
@@ -167,7 +172,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		request.Task = taskFrame
 
 		requestRaw, err := proto.Marshal(request)
-		respHttp, err := http.Post("http://localhost/",
+		respHttp, err := http.Post(urls[0],
 			"application/x-protobuf", bytes.NewReader(requestRaw))
 		if err != nil {
 			fmt.Println("Error reported when rendering frame", ix, err)
@@ -197,6 +202,8 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 }
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	// Resource providers.
 	localFlag := flag.Bool("local", false, "Use this machine.")
 	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
