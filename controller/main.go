@@ -198,7 +198,22 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 
 	// Encode
-	fmt.Println("Done! (TODO: encode with ffmpeg)")
+	fmt.Println("Converting to mp4")
+	cmd := exec.Command(
+		"ffmpeg",
+		"-y",  // Allow overwrite
+		"-framerate", fmt.Sprintf("%f", *task.Framerate),
+		"-i", path.Join(imageDir, "frame-%06d.png"),
+		"-pix_fmt", "yuv444p",
+		"-crf", "18",  // visually lossless
+		"-c:v", "libx264",
+		"-loglevel", "warning",
+		"-r", fmt.Sprintf("%f", *task.Framerate),
+		outputMp4File)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Encoding failed with ", err)
+	}
 }
 
 func main() {
