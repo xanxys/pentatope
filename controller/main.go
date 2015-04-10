@@ -50,6 +50,7 @@ type LocalProvider struct {
 }
 
 type EC2Provider struct {
+	credential AWSCredential
 }
 
 func (provider *LocalProvider) Prepare() []string {
@@ -88,7 +89,37 @@ func NewEC2Provider(credential AWSCredential) *EC2Provider {
 }
 
 func (provider *EC2Provider) Prepare() []string {
-	ec2.New(&aws.Config{Region: "us-west-1"})
+	conn := ec2.New(&aws.Config{
+		Region:      "us-west-1",
+		Credentials: &provider.credential,
+	})
+
+	bootScript := strings.Join(
+		[]string{
+			`#cloud-config`,
+			`repo_upgrade: all`,
+			`packages:`,
+			` - docker`,
+			`runcmd:`,
+			` - ["/etc/init.d/docker", "start"]`,
+			` - ["docker", "pull", "xanxys/pentatope-prod"]`,
+			` - ["docker", "run", "--detach=true", "--publish", "8000:80", "xanxys/pentatope-prod", "/root/pentatope/pentatope"]`,
+		}, "\n")
+
+	imageId := "ami-d114f295" // us-west-1
+	instType := "c4.8xlarge"
+
+	resp, err := conn.RunInstances(&ec2.RunInstancesInput{
+		ImageID:      &imageId,
+		MaxCount:     aws.Long(1),
+		MinCount:     aws.Long(1),
+		InstanceType: &instType,
+		UserData:     &bootScript,
+	})
+	if err != nil {
+		fmt.Println("EC2 launch error", err)
+	}
+	fmt.Println(resp)
 	return nil
 }
 
@@ -108,6 +139,13 @@ func (provider *EC2Provider) CalcBill() (string, float64) {
 type AWSCredential struct {
 	access_key        string
 	secret_access_key string
+}
+
+func (credential *AWSCredential) Credentials() (*aws.Credentials, error) {
+	return &aws.Credentials{
+		AccessKeyID:     credential.access_key,
+		SecretAccessKey: credential.secret_access_key,
+	}, nil
 }
 
 // Ask user whether given billing plan is ok or not in CUI.
@@ -201,11 +239,11 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	fmt.Println("Converting to mp4")
 	cmd := exec.Command(
 		"ffmpeg",
-		"-y",  // Allow overwrite
+		"-y", // Allow overwrite
 		"-framerate", fmt.Sprintf("%f", *task.Framerate),
 		"-i", path.Join(imageDir, "frame-%06d.png"),
 		"-pix_fmt", "yuv444p",
-		"-crf", "18",  // visually lossless
+		"-crf", "18", // visually lossless
 		"-c:v", "libx264",
 		"-loglevel", "warning",
 		"-r", fmt.Sprintf("%f", *task.Framerate),
