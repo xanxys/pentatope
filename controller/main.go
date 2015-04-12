@@ -16,8 +16,6 @@ import (
 	"time"
 
 	"code.google.com/p/gogoprotobuf/proto"
-	"github.com/awslabs/aws-sdk-go/aws"
-	"github.com/awslabs/aws-sdk-go/service/ec2"
 )
 
 import pentatope "./pentatope"
@@ -43,109 +41,6 @@ type Provider interface {
 	Prepare() []string
 	Discard()
 	CalcBill() (string, float64)
-}
-
-type LocalProvider struct {
-	containerId string
-}
-
-type EC2Provider struct {
-	credential AWSCredential
-}
-
-func (provider *LocalProvider) Prepare() []string {
-	container_name := fmt.Sprintf("pentatope_local_worker_%d", rand.Intn(1000))
-	port := 20000 + rand.Intn(10000)
-	cmd := exec.Command("sudo", "docker", "run",
-		"--detach=true",
-		"--name", container_name,
-		"--publish", fmt.Sprintf("%d:80", port),
-		"xanxys/pentatope-prod",
-		"/root/pentatope/worker")
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Run()
-	provider.containerId = strings.TrimSpace(out.String())
-	urls := make([]string, 1)
-	urls[0] = fmt.Sprintf("http://localhost:%d/", port)
-	return urls
-}
-
-func (provider *LocalProvider) Discard() {
-	err := exec.Command("sudo", "docker", "rm", "-f", provider.containerId).Run()
-	if err != nil {
-		fmt.Println("Container clean up failed. You may need to clean up docker container manually ", err)
-	}
-}
-
-func (provider *LocalProvider) CalcBill() (string, float64) {
-	return "This machine", 0
-}
-
-func NewEC2Provider(credential AWSCredential) *EC2Provider {
-	provider := new(EC2Provider)
-	return provider
-}
-
-func (provider *EC2Provider) Prepare() []string {
-	conn := ec2.New(&aws.Config{
-		Region:      "us-west-1",
-		Credentials: &provider.credential,
-	})
-
-	bootScript := strings.Join(
-		[]string{
-			`#cloud-config`,
-			`repo_upgrade: all`,
-			`packages:`,
-			` - docker`,
-			`runcmd:`,
-			` - ["/etc/init.d/docker", "start"]`,
-			` - ["docker", "pull", "xanxys/pentatope-prod"]`,
-			` - ["docker", "run", "--detach=true", "--publish", "8000:80", "xanxys/pentatope-prod", "/root/pentatope/pentatope"]`,
-		}, "\n")
-
-	imageId := "ami-d114f295" // us-west-1
-	instType := "c4.8xlarge"
-
-	resp, err := conn.RunInstances(&ec2.RunInstancesInput{
-		ImageID:      &imageId,
-		MaxCount:     aws.Long(1),
-		MinCount:     aws.Long(1),
-		InstanceType: &instType,
-		UserData:     &bootScript,
-	})
-	if err != nil {
-		fmt.Println("EC2 launch error", err)
-	}
-	fmt.Println(resp)
-	return nil
-}
-
-func (provider *EC2Provider) Discard() {
-}
-
-func (provider *EC2Provider) CalcBill() (string, float64) {
-	const pricePerHour = 1.856
-	const instanceType = "c4.8xlarge"
-	/*# self.price_per_hour = 0.232
-	  # self.instance_type = 'c4.xlarge'
-	  # self.price_per_hour = 0.116
-	  # self.instance_type = 'c4.large'*/
-	return fmt.Sprintf("EC2 on-demand instance (%s) * 1", instanceType), pricePerHour
-}
-
-type AWSCredential struct {
-	access_key        string
-	secret_access_key string
-}
-
-func (credential *AWSCredential) Credentials() (*aws.Credentials, error) {
-	return &aws.Credentials{
-		AccessKeyID:     credential.access_key,
-		SecretAccessKey: credential.secret_access_key,
-	}, nil
 }
 
 // Ask user whether given billing plan is ok or not in CUI.
@@ -201,6 +96,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 
 	// Render frame-by-frame.
 	for ix, frameConfig := range task.Frames {
+		fmt.Println("Rendering", ix)
 		taskFrame := &pentatope.RenderTask{}
 		taskFrame.SamplePerPixel = task.SamplePerPixel
 		taskFrame.Scene = task.Scene
@@ -276,7 +172,11 @@ func main() {
 		} else {
 			var credential AWSCredential
 			json.Unmarshal(awsJson, &credential)
-			providers = append(providers, NewEC2Provider(credential))
+			if credential.AccessKey == "" || credential.SecretAccessKey == "" {
+				fmt.Printf("Couldn't read AccessKey or SecretAccessKey from %s\n", *awsFlag)
+			} else {
+				providers = append(providers, NewEC2Provider(credential))
+			}
 		}
 	}
 	if len(providers) == 0 {
