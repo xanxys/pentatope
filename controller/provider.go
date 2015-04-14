@@ -64,7 +64,7 @@ func (provider *EC2Provider) Prepare() []string {
 		Region:      "us-west-1",
 		Credentials: &provider.credential,
 	})
-	
+
 	sgId := provider.setSecurityGroup(true)
 
 	bootScript := strings.Join(
@@ -86,12 +86,12 @@ func (provider *EC2Provider) Prepare() []string {
 	userData := base64.StdEncoding.EncodeToString([]byte(bootScript))
 
 	resp, err := conn.RunInstances(&ec2.RunInstancesInput{
-		ImageID:      &imageId,
-		MaxCount:     aws.Long(1),
-		MinCount:     aws.Long(1),
-		InstanceType: &instType,
-		UserData:     &userData,
-		SecurityGroupIDs: []*string {sgId},
+		ImageID:          &imageId,
+		MaxCount:         aws.Long(1),
+		MinCount:         aws.Long(1),
+		InstanceType:     &instType,
+		UserData:         &userData,
+		SecurityGroupIDs: []*string{sgId},
 	})
 	if err != nil {
 		fmt.Println("EC2 launch error", err)
@@ -208,7 +208,7 @@ func (provider *EC2Provider) setSecurityGroup(exist bool) *string {
 		return nil
 	}
 	respSg, err := conn.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
-		GroupName: &sgName,
+		GroupName:   &sgName,
 		Description: newString("For workers in https://github.com/xanxys/pentatope"),
 	})
 	if err != nil {
@@ -216,11 +216,11 @@ func (provider *EC2Provider) setSecurityGroup(exist bool) *string {
 	}
 
 	_, err = conn.AuthorizeSecurityGroupIngress(&ec2.AuthorizeSecurityGroupIngressInput{
-		GroupID: respSg.GroupID,
+		GroupID:    respSg.GroupID,
 		IPProtocol: newString("tcp"),
-		CIDRIP: newString("0.0.0.0/0"),
-		FromPort: newInt64(8000),
-		ToPort: newInt64(8000),
+		CIDRIP:     newString("0.0.0.0/0"),
+		FromPort:   newInt64(8000),
+		ToPort:     newInt64(8000),
 	})
 	if err != nil {
 		panic(err)
