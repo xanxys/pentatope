@@ -182,10 +182,12 @@ func (provider *EC2Provider) setSecurityGroup(exist bool) *string {
 	})
 
 	// Destroy current SG if exists, and confirm deletion.
-	conn.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
-		GroupName: &sgName,
-	})
+	// We call DeleteSecurityGroup many times because instances
+	// not yet terminated would prevent SG deletion.
 	for {
+		conn.DeleteSecurityGroup(&ec2.DeleteSecurityGroupInput{
+			GroupName: &sgName,
+		})
 		resp, err := conn.DescribeSecurityGroups(&ec2.DescribeSecurityGroupsInput{})
 		if err == nil {
 			n := 0
