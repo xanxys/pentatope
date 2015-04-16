@@ -63,7 +63,7 @@ func askBillingPlan(providers []Provider) bool {
 }
 
 type TaskShard struct {
-	noMoreTask bool
+	noMoreTask  bool
 	frameIndex  int
 	frameConfig *pentatope.CameraConfig
 }
