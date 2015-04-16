@@ -64,7 +64,6 @@ func askBillingPlan(providers []Provider) bool {
 }
 
 type TaskShard struct {
-	noMoreTask  bool
 	frameIndex  int
 	frameConfig *pentatope.CameraConfig
 }
@@ -75,19 +74,21 @@ func renderShard(
 	serverUrl string, imageDir string) bool {
 
 	log.Println("Rendering", shard.frameIndex, "in", serverUrl)
-	taskFrame := &pentatope.RenderTask{}
-	taskFrame.SamplePerPixel = wholeTask.SamplePerPixel
-	taskFrame.Scene = wholeTask.Scene
-	taskFrame.Camera = shard.frameConfig
+	taskFrame := &pentatope.RenderTask{
+		SamplePerPixel: wholeTask.SamplePerPixel,
+		Scene:          wholeTask.Scene,
+		Camera:         shard.frameConfig,
+	}
 
-	request := &pentatope.RenderRequest{}
-	request.Task = taskFrame
+	request := &pentatope.RenderRequest{
+		Task: taskFrame,
+	}
 
 	requestRaw, err := proto.Marshal(request)
 	respHttp, err := http.Post(serverUrl,
 		"application/x-protobuf", bytes.NewReader(requestRaw))
 	if err != nil {
-		log.Println("Error reported when rendering frame",
+		log.Println("Error when rendering frame",
 			shard.frameIndex, err)
 		return false
 	}
@@ -107,6 +108,7 @@ func renderShard(
 	}
 	imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
 	ioutil.WriteFile(imagePath, resp.Output, 0777)
+	log.Println("Shard", shard, "complete")
 	return true
 }
 
@@ -128,14 +130,6 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		return
 	}
 
-	// Prepare providers.
-	urls := make([]string, 0)
-	for _, provider := range providers {
-		log.Println("Preparing provider", provider)
-		urls = append(urls, provider.Prepare()...)
-		log.Println("provider urls:", urls)
-		defer provider.Discard()
-	}
 	// Prepare output directory.
 	imageDir, err := ioutil.TempDir("", "penc")
 	if err != nil {
@@ -144,38 +138,67 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 	defer os.RemoveAll(imageDir)
 
-	// For each URL (server), we create task feeder.
 	cTask := make(chan *TaskShard)
-	cFinSignal := make(chan bool) // put true when feeder is done.
+	cResult := make(chan bool)
+	cFinishers := make([]chan bool, 0)
+	cDiscardEnded := make(chan bool)
 
-	for _, url := range urls {
-		// Repeatedly convert task to RenderRequest and get result until
-		// cTask become empty.
-		go func(serverUrl string) {
-			for shard := range cTask {
-				if shard.noMoreTask {
-					break
-				}
-				renderShard(task, shard, serverUrl, imageDir)
+	log.Println("Preparing providers in parallel")
+	for _, provider := range providers {
+		go func(provider Provider) {
+			log.Println("Preparing provider", provider)
+			urls := provider.Prepare()
+			defer func() {
+				provider.Discard()
+				cDiscardEnded <- true
+			}()
+			log.Println("provider urls:", urls)
+
+			cFeederDead := make(chan bool)
+			for _, url := range urls {
+				cFinisher := make(chan bool)
+				cFinishers = append(cFinishers, cFinisher)
+				go func(serverUrl string) {
+					for {
+						select {
+						case shard := <-cTask:
+							cResult <- renderShard(task, shard, serverUrl, imageDir)
+						case <-cFinisher:
+							log.Println("Shutting down feeder for", serverUrl)
+							cFeederDead <- true
+							return
+						}
+					}
+				}(url)
 			}
-			log.Println("Shutting down feeder for", serverUrl)
-			cFinSignal <- true
-		}(url)
+
+			// Wait all feeder to die. (because we can't allow defer
+			// to run until they finish)
+			for range urls {
+				<-cFeederDead
+			}
+			log.Println("Provider", provider, "ended its role")
+		}(provider)
 	}
 
+	cResultAggregate := make(chan bool)
+	go func() {
+		for range task.Frames {
+			<-cResult
+		}
+		cResultAggregate <- true
+	}()
+
+	log.Println("Feeding tasks")
 	for ix, frameConfig := range task.Frames {
 		log.Println("Queueing", ix)
-		cTask <- &TaskShard{false, ix, frameConfig}
+		cTask <- &TaskShard{ix, frameConfig}
 	}
+	log.Println("Waiting all shards to finish")
+	<-cResultAggregate
 	log.Println("Sending terminate requests")
-	for range urls {
-		cTask <- &TaskShard{noMoreTask: true}
-	}
-
-	// Wait until all feeder become idle (i.e. task completion)
-	log.Println("Waiting for feeder termination")
-	for range urls {
-		<-cFinSignal
+	for _, cFinisher := range cFinishers {
+		cFinisher <- true
 	}
 
 	// Encode
@@ -196,6 +219,11 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		log.Println("Encoding failed with", err)
 	}
 	log.Println("Encoding finished")
+
+	log.Println("Waiting discard to finish")
+	for range providers {
+		<-cDiscardEnded
+	}
 }
 
 func main() {

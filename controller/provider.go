@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"os/exec"
@@ -37,9 +38,9 @@ func (provider *LocalProvider) Prepare() []string {
 	cmd.Stdout = &out
 	cmd.Run()
 	provider.containerId = strings.TrimSpace(out.String())
-	urls := make([]string, 1)
-	urls[0] = fmt.Sprintf("http://localhost:%d/", port)
-	return urls
+	url := fmt.Sprintf("http://localhost:%d/", port)
+	blockUntilAvailable(url, time.Second)
+	return []string{url}
 }
 
 func (provider *LocalProvider) Discard() {
@@ -101,17 +102,17 @@ func (provider *EC2Provider) Prepare() []string {
 
 	// Wait until the instance become running
 	for {
-		fmt.Println("Pinging status")
+		log.Println("Pinging status")
 		resp, err := conn.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{
 			InstanceIDs: []*string{&provider.instanceId},
 		})
 		if err != nil {
-			fmt.Println("EC2 status check error", err)
+			log.Println("EC2 status check error", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		if len(resp.InstanceStatuses) == 0 {
-			fmt.Println("No result for status check")
+			log.Println("No result for status check")
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -131,18 +132,7 @@ func (provider *EC2Provider) Prepare() []string {
 	}
 
 	url := fmt.Sprintf("http://%s:8000", *ipAddress)
-	for {
-		fmt.Println("Pinging status for RPC availability")
-		httpResp, err := http.Post(url,
-			"application/x-protobuf", strings.NewReader("PING"))
-		if err != nil {
-			fmt.Println(err)
-		}
-		if httpResp != nil && httpResp.StatusCode == 400 {
-			break
-		}
-		time.Sleep(5 * time.Second)
-	}
+	blockUntilAvailable(url, 5*time.Second)
 	return []string{url}
 }
 
@@ -246,4 +236,17 @@ func (credential *AWSCredential) Credentials() (*aws.Credentials, error) {
 		AccessKeyID:     credential.AccessKey,
 		SecretAccessKey: credential.SecretAccessKey,
 	}, nil
+}
+
+func blockUntilAvailable(url string, interval time.Duration) {
+	for {
+		log.Println("Pinging", url, "for RPC availability")
+		httpResp, _ := http.Post(url,
+			"application/x-protobuf", strings.NewReader("PING"))
+		if httpResp != nil && httpResp.StatusCode == 400 {
+			break
+		}
+		time.Sleep(interval)
+	}
+	log.Println(url, "is now accepting request")
 }
