@@ -69,6 +69,47 @@ type TaskShard struct {
 	frameConfig *pentatope.CameraConfig
 }
 
+// Return true when shard rendering succeeds.
+func renderShard(
+	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
+	serverUrl string, imageDir string) bool {
+
+	log.Println("Rendering", shard.frameIndex, "in", serverUrl)
+	taskFrame := &pentatope.RenderTask{}
+	taskFrame.SamplePerPixel = wholeTask.SamplePerPixel
+	taskFrame.Scene = wholeTask.Scene
+	taskFrame.Camera = shard.frameConfig
+
+	request := &pentatope.RenderRequest{}
+	request.Task = taskFrame
+
+	requestRaw, err := proto.Marshal(request)
+	respHttp, err := http.Post(serverUrl,
+		"application/x-protobuf", bytes.NewReader(requestRaw))
+	if err != nil {
+		log.Println("Error reported when rendering frame",
+			shard.frameIndex, err)
+		return false
+	}
+
+	resp := &pentatope.RenderResponse{}
+	respRaw, err := ioutil.ReadAll(respHttp.Body)
+	respHttp.Body.Close()
+
+	err = proto.Unmarshal(respRaw, resp)
+	if err != nil {
+		log.Println("Invalid proto received from worker", err)
+		return false
+	}
+	if !*resp.IsOk {
+		log.Println("Error in worker", resp.ErrorMessage)
+		return false
+	}
+	imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
+	ioutil.WriteFile(imagePath, resp.Output, 0777)
+	return true
+}
+
 func render(providers []Provider, inputFile string, outputMp4File string) {
 	// Generate RenderRequest from inputFile.
 	taskRaw, err := ioutil.ReadFile(inputFile)
@@ -115,39 +156,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 				if shard.noMoreTask {
 					break
 				}
-				log.Println("Rendering", shard.frameIndex, "in", serverUrl)
-				taskFrame := &pentatope.RenderTask{}
-				taskFrame.SamplePerPixel = task.SamplePerPixel
-				taskFrame.Scene = task.Scene
-				taskFrame.Camera = shard.frameConfig
-
-				request := &pentatope.RenderRequest{}
-				request.Task = taskFrame
-
-				requestRaw, err := proto.Marshal(request)
-				respHttp, err := http.Post(serverUrl,
-					"application/x-protobuf", bytes.NewReader(requestRaw))
-				if err != nil {
-					log.Println("Error reported when rendering frame",
-						shard.frameIndex, err)
-					continue
-				}
-
-				resp := &pentatope.RenderResponse{}
-				respRaw, err := ioutil.ReadAll(respHttp.Body)
-				respHttp.Body.Close()
-
-				err = proto.Unmarshal(respRaw, resp)
-				if err != nil {
-					log.Println("Invalid proto received from worker", err)
-					continue
-				}
-				if !*resp.IsOk {
-					log.Println("Error in worker", resp.ErrorMessage)
-					continue
-				}
-				imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
-				ioutil.WriteFile(imagePath, resp.Output, 0777)
+				renderShard(task, shard, serverUrl, imageDir)
 			}
 			log.Println("Shutting down feeder for", serverUrl)
 			cFinSignal <- true
