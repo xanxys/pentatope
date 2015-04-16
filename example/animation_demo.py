@@ -10,6 +10,7 @@ import sys
 def camera_config_nature_duration():
     return 1.0
 
+
 def camera_config_nature(t, args, camera_config, image_size):
     """
     Set CameraConfig at time t in nature scene.

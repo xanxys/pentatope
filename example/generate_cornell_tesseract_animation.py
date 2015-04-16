@@ -4,12 +4,8 @@ from google.protobuf import text_format
 from render_task_pb2 import *
 import argparse
 import math
-import multiprocessing
 import numpy as np
-import os.path
 import subprocess
-import sys
-import tempfile
 
 
 def setup_cornell_animation(duration, fps):
@@ -23,10 +19,7 @@ def setup_cornell_animation(duration, fps):
     rt_base = RenderTask()
     text_format.Merge(content, rt_base)
 
-    tasks_path_prefix = tempfile.mkdtemp()
-    frames_path_prefix = tempfile.mkdtemp()
-
-    def create_frame(t):
+    def populate_frame(camera_config, t):
         """
         Return RenderTask at time t (second).
         output_path will be undefined.
@@ -76,25 +69,20 @@ def setup_cornell_animation(duration, fps):
         rt.camera.local_to_world.translation.extend(list(pos_t))
         return rt
 
-    def create_frame_task(t, index):
-        """
-        Save RenderTask for the frame at (time t, index) on disk
-        as binary proto.
-        Returns (full path of RenderTask proto, full path of frame image)
-        """
-        rt = create_frame(t)
-        task_path = os.path.join(tasks_path_prefix, '%d.pb' % index)
-        frame_path = os.path.join(frames_path_prefix, '%d.png' % index)
-        rt.output_path = frame_path
-        open(task_path, 'wb').write(rt.SerializeToString())
-        return (task_path, frame_path)
-
     print('Render images directory: %s' % frames_path_prefix)
     print('Render frame description directory: %s' % tasks_path_prefix)
 
     n_frames = int(duration * fps)
     print('Needs %d (= %f s * %f f/s) frames' % (n_frames, duration, fps))
-    return [create_frame_task(i / fps, i) for i in range(n_frames)]
+
+    task = proto.RenderMovieTask()
+    task.framerate = fps
+    task.sample_per_pixel = 100
+    task.width, task.height = 640, 480
+    task.scene.CopyFrom(rt_base.scene)  # TODO: need to represent as RenderScene
+    for i in range(n_frames):
+        frame = task.frames.add()
+        populate_frame(frame, i / fps)
 
 
 def process_task(task_path):
@@ -115,41 +103,11 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
         '--fps', type=float, default=30,
         help='frames / second')
     parser.add_argument(
-        '--proc', type=int, default=1,
-        help='How many processes to use')
-    parser.add_argument(
-        '--encode_to', type=str, default=None,
-        help='Output H264 movie. (ffmpeg must be in $PATH)')
+        '--output', type=str, default=None, required=True,
+        help='RenderMovieTask pb output path')
 
     args = parser.parse_args()
+
     animation = setup_cornell_animation(args.duration, args.fps)
 
     tasks, frames = zip(*animation)  # unzip
-
-    # Run tasks
-    n_tasks = len(tasks)
-    if args.proc == 1:
-        # Run without multiprocessing to ease debugging
-        for (i, task) in enumerate(tasks):
-            print('Rendering frame %d of %d' % (i + 1, n_tasks))
-            subprocess.check_call(['build/pentatope', '--render', task])
-    else:
-        print('Using pool of %d processes' % args.proc)
-        pool = multiprocessing.Pool(args.proc)
-        # HACK: receive keyboard interrupt correctly
-        # https://stackoverflow.com/questions/1408356/keyboard-interrupts-with-pythons-multiprocessing-pool
-        pool.map_async(process_task, tasks).get(1000 ** 3)  # None will not work
-
-    if args.encode_to is not None:
-        frames_dir = os.path.dirname(frames[0])
-        command = [
-            "ffmpeg",
-            "-y",  # overwrite
-            "-framerate", str(args.fps),
-            "-i", os.path.join(frames_dir, "%0d.png"),
-            "-crf", "18",  # visually lossless
-            "-c:v", "libx264",
-            "-r", str(args.fps),
-            args.encode_to]
-        print('Encoding with command: %s' % command)
-        subprocess.check_call(command)
