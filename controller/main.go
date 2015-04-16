@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -72,30 +73,32 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	// Generate RenderRequest from inputFile.
 	taskRaw, err := ioutil.ReadFile(inputFile)
 	if err != nil {
-		fmt.Println("Aborting because", err)
+		log.Println("Aborting because", err)
 		return
 	}
 	task := &pentatope.RenderMovieTask{}
 	err = proto.Unmarshal(taskRaw, task)
 	if err != nil {
-		fmt.Println("Input file is invalid as RenverMovieTask")
+		log.Println("Input file is invalid as RenverMovieTask")
 		return
 	}
 	if len(task.Frames) == 0 {
-		fmt.Println("One or more frames required")
+		log.Println("One or more frames required")
 		return
 	}
 
 	// Prepare providers.
 	urls := make([]string, 0)
 	for _, provider := range providers {
+		log.Println("Preparing provider", provider)
 		urls = append(urls, provider.Prepare()...)
+		log.Println("provider urls:", urls)
 		defer provider.Discard()
 	}
 	// Prepare output directory.
 	imageDir, err := ioutil.TempDir("", "penc")
 	if err != nil {
-		fmt.Println("Failed to create a temporary image directory", err)
+		log.Println("Failed to create a temporary image directory", err)
 		return
 	}
 	defer os.RemoveAll(imageDir)
@@ -112,7 +115,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 				if shard.noMoreTask {
 					break
 				}
-				fmt.Println("Rendering", shard.frameIndex, " in ", serverUrl)
+				log.Println("Rendering", shard.frameIndex, "in", serverUrl)
 				taskFrame := &pentatope.RenderTask{}
 				taskFrame.SamplePerPixel = task.SamplePerPixel
 				taskFrame.Scene = task.Scene
@@ -125,7 +128,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 				respHttp, err := http.Post(serverUrl,
 					"application/x-protobuf", bytes.NewReader(requestRaw))
 				if err != nil {
-					fmt.Println("Error reported when rendering frame",
+					log.Println("Error reported when rendering frame",
 						shard.frameIndex, err)
 					continue
 				}
@@ -136,38 +139,38 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 
 				err = proto.Unmarshal(respRaw, resp)
 				if err != nil {
-					fmt.Println("Invalid proto received from worker", err)
+					log.Println("Invalid proto received from worker", err)
 					continue
 				}
 				if !*resp.IsOk {
-					fmt.Println("Error in worker", resp.ErrorMessage)
+					log.Println("Error in worker", resp.ErrorMessage)
 					continue
 				}
 				imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
 				ioutil.WriteFile(imagePath, resp.Output, 0777)
 			}
-			fmt.Println("Shutting down feeder for ", serverUrl)
+			log.Println("Shutting down feeder for", serverUrl)
 			cFinSignal <- true
 		}(url)
 	}
 
 	for ix, frameConfig := range task.Frames {
-		fmt.Println("Queueing", ix)
+		log.Println("Queueing", ix)
 		cTask <- &TaskShard{false, ix, frameConfig}
 	}
-	fmt.Println("Sending terminate requests")
+	log.Println("Sending terminate requests")
 	for range urls {
 		cTask <- &TaskShard{noMoreTask: true}
 	}
 
 	// Wait until all feeder become idle (i.e. task completion)
-	fmt.Println("Waiting for feeder termination")
+	log.Println("Waiting for feeder termination")
 	for range urls {
 		<-cFinSignal
 	}
 
 	// Encode
-	fmt.Println("Converting to mp4")
+	log.Println("Converting to mp4")
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y", // Allow overwrite
@@ -181,7 +184,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		outputMp4File)
 	err = cmd.Run()
 	if err != nil {
-		fmt.Println("Encoding failed with ", err)
+		log.Println("Encoding failed with ", err)
 	}
 }
 
@@ -203,7 +206,7 @@ func main() {
 	if *awsFlag != "" {
 		awsJson, err := ioutil.ReadFile(*awsFlag)
 		if err != nil {
-			fmt.Println("Ignoring AWS because credential file was not found.")
+			log.Println("Ignoring AWS because credential file was not found.")
 		} else {
 			var credential AWSCredential
 			json.Unmarshal(awsJson, &credential)
@@ -215,7 +218,7 @@ func main() {
 		}
 	}
 	if len(providers) == 0 {
-		fmt.Println("You need at least one usable provider.")
+		log.Println("You need at least one usable provider.")
 		os.Exit(1)
 	}
 
