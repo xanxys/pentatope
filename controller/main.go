@@ -170,7 +170,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 
 	// Encode
-	log.Println("Converting to mp4")
+	log.Println("Converting to mp4", outputMp4File)
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y", // Allow overwrite
@@ -184,8 +184,9 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		outputMp4File)
 	err = cmd.Run()
 	if err != nil {
-		log.Println("Encoding failed with ", err)
+		log.Println("Encoding failed with", err)
 	}
+	log.Println("Encoding finished")
 }
 
 func main() {
