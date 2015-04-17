@@ -1,68 +1,20 @@
-sample_per_pixel: 100
-camera {
-    camera_type: "perspective2"
-    # rotation:
-    # World <- Camera
-    # X+         X+(horz)
-    # W+         Y-(up)
-    # Z+         Z+(ignored)
-    # Y+         W+(forward)
-    local_to_world: {
-        # rotation =
-        # 1 0 0 0
-        # 0 0 0 1
-        # 0 0 1 0
-        # 0 -1 0 0
-        rotation: 1
-        rotation: 0
-        rotation: 0
-        rotation: 0
-
-        rotation: 0
-        rotation: 0
-        rotation: 0
-        rotation: 1
-
-        rotation: 0
-        rotation: 0
-        rotation: 1
-        rotation: 0
-
-        rotation: 0
-        rotation: -1
-        rotation: 0
-        rotation: 0
-
-        translation: 0
-        translation: -0.95
-        translation: 0
-        translation: 1
-    }
-
-    size_x: 640
-    size_y: 480
-    fov_x: 157
-    fov_y: 150
-}
-output_path: "./render.png"
-scene {
 # Create [-1,1]^3 * [0,2] box
 # X walls: white
 # Y-:green Y+:red
 # Z-:yellow Z+:blue
 
 # floor(W)
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 0
                 z: 0
                 w: 0
             }
-            normal {
+            normal: {
                 x: 0
                 y: 0
                 z: 0
@@ -71,10 +23,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 1
@@ -82,17 +34,17 @@ objects {
         }
     }
 }
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 0
                 z: 0
                 w: 2
             }
-            normal {
+            normal: {
                 x: 0
                 y: 0
                 z: 0
@@ -101,10 +53,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 1
@@ -114,17 +66,17 @@ objects {
 }
 
 # walls(X)
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: -1
                 y: 0
                 z: 0
                 w: 1
             }
-            normal {
+            normal: {
                 x: 1
                 y: 0
                 z: 0
@@ -133,10 +85,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 1
@@ -144,17 +96,17 @@ objects {
         }
     }
 }
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 1
                 y: 0
                 z: 0
                 w: 1
             }
-            normal {
+            normal: {
                 x: -1
                 y: 0
                 z: 0
@@ -163,10 +115,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 1
@@ -176,17 +128,17 @@ objects {
 }
 
 # walls(Y)
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: -1
                 z: 0
                 w: 1
             }
-            normal {
+            normal: {
                 x: 0
                 y: 1
                 z: 0
@@ -195,10 +147,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 0
                 g: 1
                 b: 0
@@ -206,17 +158,17 @@ objects {
         }
     }
 }
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 1
                 z: 0
                 w: 1
             }
-            normal {
+            normal: {
                 x: 0
                 y: -1
                 z: 0
@@ -225,10 +177,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 0
                 b: 0
@@ -238,17 +190,17 @@ objects {
 }
 
 # walls(Z)
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 0
                 z: -1
                 w: 1
             }
-            normal {
+            normal: {
                 x: 0
                 y: 0
                 z: 1
@@ -257,10 +209,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 0
@@ -268,17 +220,17 @@ objects {
         }
     }
 }
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: DISC
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 0
                 z: 1
                 w: 1
             }
-            normal {
+            normal: {
                 x: 0
                 y: 0
                 z: -1
@@ -287,10 +239,10 @@ objects {
             radius: 5
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 0
                 g: 0
                 b: 1
@@ -300,11 +252,11 @@ objects {
 }
 
 # Things inside the room.
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: SPHERE
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 0
                 z: 0
@@ -313,10 +265,10 @@ objects {
             radius: 0.2
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 1
@@ -324,11 +276,11 @@ objects {
         }
     }
 }
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: SPHERE
-        [pentatope.DiscGeometry.geom] {
-            center {
+        [geometry]: {
+            center: {
                 x: 0
                 y: 0.5
                 z: 0.1
@@ -337,27 +289,28 @@ objects {
             radius: 0.5
         }
     }
-    material {
+    material: {
         type: GLASS
-        [pentatope.GlassMaterialProto.material] {
+        [material]: {
             refractive_index: 1.5
         }
     }
 }
-objects {
-    geometry {
+objects: {
+    geometry: {
         type: OBB
-        [pentatope.OBBGeometry.geom] {
+        [geometry]: {
+            local_to_world:
             size: 0.4
             size: 0.4
             size: 0.4
             size: 0.8
         }
     }
-    material {
+    material: {
         type: UNIFORM_LAMBERT
-        [pentatope.UniformLambertMaterialProto.material] {
-            reflectance {
+        [material]: {
+            reflectance: {
                 r: 1
                 g: 1
                 b: 1
@@ -366,19 +319,17 @@ objects {
     }
 }
 
-lights {
+lights: {
     type: POINT
-    [pentatope.PointLight.light] {
+    [light]: {
         translation: 0
         translation: 0
         translation: 0
         translation: 1.9
-        power {
+        power: {
             r: 100
             g: 100
             b: 100
         }
     }
-}
-
 }
