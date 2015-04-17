@@ -34,6 +34,8 @@ Eigen::Vector4f loadDirection(const Direction& pt);
 
 std::unique_ptr<Geometry> loadGeometry(const ObjectGeometry& og);
 
+std::unique_ptr<Material> loadMaterial(const ObjectMaterial& og);
+
 Object loadObject(const SceneObject& so);
 
 std::unique_ptr<Light> loadLight(const SceneLight& sl);

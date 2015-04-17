@@ -189,21 +189,10 @@ std::unique_ptr<Geometry> loadGeometry(const ObjectGeometry& og) {
     }
 }
 
-Object loadObject(const SceneObject& object) {
-    // Load geometry.
-    if(!object.has_geometry()) {
-        throw invalid_task("Object requires geometry.");
-    }
-    std::unique_ptr<Geometry> geom = loadGeometry(object.geometry());
-
-    // Load material.
-    std::unique_ptr<Material> material;
-    if(!object.has_material()) {
-        throw invalid_task("Object requires material.");
-    }
-    if(object.material().type() == ObjectMaterial::UNIFORM_LAMBERT) {
+std::unique_ptr<Material> loadMaterial(const ObjectMaterial& om) {
+    if(om.type() == ObjectMaterial::UNIFORM_LAMBERT) {
         const UniformLambertMaterialProto& material_proto =
-            object.material().GetExtension(
+            om.GetExtension(
                 UniformLambertMaterialProto::material);
         if(!material_proto.has_reflectance()) {
             throw invalid_task("UniformLambertMaterial requires reflectance.");
@@ -215,15 +204,33 @@ Object loadObject(const SceneObject& object) {
                 reflectance.maxCoeff() > 1) {
             throw invalid_task("Reflectance must be within 0 and 1.");
         }
-        material.reset(new UniformLambertMaterial(reflectance));
+        return std::make_unique<UniformLambertMaterial>(reflectance);
+    } else if(om.type() == ObjectMaterial::GLASS) {
+        const GlassMaterialProto& glass_proto =
+            om.GetExtension(GlassMaterialProto::material);
+        const float refractive_index = glass_proto.has_refractive_index() ?
+            glass_proto.refractive_index() : 1.0;
+        return std::make_unique<GlassMaterial>(refractive_index);
     } else {
         throw invalid_task("Unknown material type");
     }
+}
+
+Object loadObject(const SceneObject& object) {
+    // Load geometry.
+    if(!object.has_geometry()) {
+        throw invalid_task("Object requires geometry.");
+    }
+    std::unique_ptr<Geometry> geom = loadGeometry(object.geometry());
+    // Load material.
+    if(!object.has_material()) {
+        throw invalid_task("Object requires material.");
+    }
+    std::unique_ptr<Material> material = loadMaterial(object.material());
     // Construct and append object.
     assert(geom);
     assert(material);
-    return std::make_pair(
-        std::move(geom), std::move(material));
+    return std::make_pair(std::move(geom), std::move(material));
 }
 
 std::unique_ptr<Light> loadLight(const SceneLight& light_proto) {

@@ -186,8 +186,11 @@ message DiscGeometry {
 
 
 message ObjectMaterial {
+    // Model after (pseudo) real-life objects, because we don't have
+    // established BRDF models for 4-d space.
     enum MaterialType {
         UNIFORM_LAMBERT = 1;
+        GLASS = 2;
     }
     extensions 100 to max;
 
@@ -201,6 +204,19 @@ message UniformLambertMaterialProto {
 
     // Reflectance in [0, 1].
     optional SpectrumProto reflectance = 1;
+}
+
+message GlassMaterialProto {
+    extend ObjectMaterial {
+        optional GlassMaterialProto material = 101;
+    }
+
+    // Refractive index of the inside.
+    // index > 1 means more solid than air.
+    // This should be considered as absolute index,
+    // but the tracer currently do not support nested material
+    // so it doesn't matter.
+    optional float refractive_index = 1;
 }
 
 
