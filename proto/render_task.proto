@@ -109,6 +109,15 @@ message Point {
     required float w = 4;
 }
 
+// A unit length vector in 4-d space.
+// It can be a normal, a basis, or any other thing.
+message Direction {
+    required float x = 1;
+    required float y = 2;
+    required float z = 3;
+    required float w = 4;
+}
+
 // Scene contains objects and lights.
 // Objects can be emissive, but they are not as fast as lights.
 message RenderScene {
@@ -129,6 +138,8 @@ message ObjectGeometry {
     enum GeometryType {
         OBB = 1;
         TETRAHEDRON = 2;
+        SPHERE = 3;
+        DISC = 4;
     }
     extensions 100 to max;
 
@@ -154,6 +165,23 @@ message TetrahedronGeometry {
     required Point vertex1 = 2;
     required Point vertex2 = 3;
     required Point vertex3 = 4;
+}
+
+message SphereGeometry {
+    extend ObjectGeometry {
+        optional SphereGeometry geom = 102;
+    }
+    required Point center = 1;
+    required float radius = 2;
+}
+
+message DiscGeometry {
+    extend ObjectGeometry {
+        optional DiscGeometry geom = 103;
+    }
+    required Point center = 1;
+    required Direction normal = 2;
+    required float radius = 3;
 }
 
 

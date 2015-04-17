@@ -30,6 +30,9 @@ std::unique_ptr<Scene> createCornellTesseract();
 Spectrum loadSpectrum(const SpectrumProto& sp);
 
 Eigen::Vector4f loadPoint(const Point& pt);
+Eigen::Vector4f loadDirection(const Direction& pt);
+
+std::unique_ptr<Geometry> loadGeometry(const ObjectGeometry& og);
 
 Object loadObject(const SceneObject& so);
 

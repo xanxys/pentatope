@@ -126,15 +126,18 @@ Eigen::Vector4f loadPoint(const Point& pt) {
     return Eigen::Vector4f(pt.x(), pt.y(), pt.z(), pt.w());
 }
 
-Object loadObject(const SceneObject& object) {
-    // Load geometry.
-    std::unique_ptr<Geometry> geom;
-    if(!object.has_geometry()) {
-        throw invalid_task("Object requires geometry.");
+Eigen::Vector4f loadDirection(const Direction& dir) {
+    const Eigen::Vector4f d(dir.x(), dir.y(), dir.z(), dir.w());
+    if(std::abs(d.norm() - 1) >= 1e-5) {
+        throw invalid_task("Length of direction must be 1.");
     }
-    if(object.geometry().type() == ObjectGeometry::OBB) {
+    return d;
+}
+
+std::unique_ptr<Geometry> loadGeometry(const ObjectGeometry& og) {
+    if(og.type() == ObjectGeometry::OBB) {
         const OBBGeometry& obb =
-            object.geometry().GetExtension(OBBGeometry::geom);
+            og.GetExtension(OBBGeometry::geom);
         if(!obb.has_local_to_world()) {
             throw invalid_task("OBB requires local_to_world");
         }
@@ -149,24 +152,50 @@ Object loadObject(const SceneObject& object) {
                 throw invalid_task("Size must be positive");
             }
         }
-        geom.reset(
-            new OBB(
-                loadPoseFromRigidTransform(obb.local_to_world()),
-                size));
-    } else if(object.geometry().type() == ObjectGeometry::TETRAHEDRON) {
+        return std::make_unique<OBB>(
+            loadPoseFromRigidTransform(obb.local_to_world()),
+            size);
+    } else if(og.type() == ObjectGeometry::TETRAHEDRON) {
         const TetrahedronGeometry& tetra =
-            object.geometry().GetExtension(TetrahedronGeometry::geom);
-        geom.reset(
-            new Tetrahedron(
-                std::array<Eigen::Vector4f, 4>({
-                    loadPoint(tetra.vertex0()),
-                    loadPoint(tetra.vertex1()),
-                    loadPoint(tetra.vertex2()),
-                    loadPoint(tetra.vertex3())
-                })));
+            og.GetExtension(TetrahedronGeometry::geom);
+        return std::make_unique<Tetrahedron>(
+            std::array<Eigen::Vector4f, 4>({
+                loadPoint(tetra.vertex0()),
+                loadPoint(tetra.vertex1()),
+                loadPoint(tetra.vertex2()),
+                loadPoint(tetra.vertex3())
+                }));
+    } else if(og.type() == ObjectGeometry::SPHERE) {
+        const SphereGeometry& sphere =
+            og.GetExtension(SphereGeometry::geom);
+        if(sphere.radius() <= 0) {
+            throw invalid_task("Sphere radius must be positive");
+        }
+        return std::make_unique<Sphere>(
+            loadPoint(sphere.center()),
+            sphere.radius());
+    } else if(og.type() == ObjectGeometry::DISC) {
+        const DiscGeometry& disc =
+            og.GetExtension(DiscGeometry::geom);
+        if(disc.radius() <= 0) {
+            throw invalid_task("Disc radius must be positive");
+        }
+        return std::make_unique<Disc>(
+            loadPoint(disc.center()),
+            loadDirection(disc.normal()),
+            disc.radius());
     } else {
         throw invalid_task("Unknown geometry type");
     }
+}
+
+Object loadObject(const SceneObject& object) {
+    // Load geometry.
+    if(!object.has_geometry()) {
+        throw invalid_task("Object requires geometry.");
+    }
+    std::unique_ptr<Geometry> geom = loadGeometry(object.geometry());
+
     // Load material.
     std::unique_ptr<Material> material;
     if(!object.has_material()) {
