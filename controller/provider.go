@@ -20,8 +20,11 @@ type LocalProvider struct {
 }
 
 type EC2Provider struct {
-	credential AWSCredential
-	instanceId string
+	credential  AWSCredential
+	instanceIds []*string
+
+	instanceNum  int
+	instanceType string
 }
 
 func (provider *LocalProvider) Prepare() []string {
@@ -57,10 +60,14 @@ func (provider *LocalProvider) CalcBill() (string, float64) {
 func NewEC2Provider(credential AWSCredential) *EC2Provider {
 	provider := new(EC2Provider)
 	provider.credential = credential
+	provider.instanceNum = 4
+	provider.instanceType = "c4.8xlarge"
 	return provider
 }
 
 func (provider *EC2Provider) Prepare() []string {
+	const n = 4
+
 	conn := ec2.New(&aws.Config{
 		Region:      "us-west-1",
 		Credentials: &provider.credential,
@@ -81,16 +88,14 @@ func (provider *EC2Provider) Prepare() []string {
 		}, "\n")
 
 	imageId := "ami-d114f295" // us-west-1
-	// instType := "c4.8xlarge"
-	instType := "c4.2xlarge"
 
 	userData := base64.StdEncoding.EncodeToString([]byte(bootScript))
 
 	resp, err := conn.RunInstances(&ec2.RunInstancesInput{
 		ImageID:          &imageId,
-		MaxCount:         aws.Long(1),
-		MinCount:         aws.Long(1),
-		InstanceType:     &instType,
+		MaxCount:         aws.Long(n),
+		MinCount:         aws.Long(n),
+		InstanceType:     &provider.instanceType,
 		UserData:         &userData,
 		SecurityGroupIDs: []*string{sgId},
 	})
@@ -98,42 +103,53 @@ func (provider *EC2Provider) Prepare() []string {
 		fmt.Println("EC2 launch error", err)
 		return []string{}
 	}
-	provider.instanceId = *resp.Instances[0].InstanceID
+	for _, instance := range resp.Instances {
+		provider.instanceIds = append(
+			provider.instanceIds, instance.InstanceID)
+	}
 
 	// Wait until the instance become running
 	for {
 		log.Println("Pinging status")
 		resp, err := conn.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{
-			InstanceIDs: []*string{&provider.instanceId},
+			InstanceIDs: provider.instanceIds,
 		})
 		if err != nil {
 			log.Println("EC2 status check error", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		if len(resp.InstanceStatuses) == 0 {
-			log.Println("No result for status check")
+		if len(resp.InstanceStatuses) < n {
+			log.Println("Number of statuses is too few")
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		if *resp.InstanceStatuses[0].InstanceState.Name == "running" {
+		allRunning := true
+		for _, status := range resp.InstanceStatuses {
+			allRunning = allRunning && (*status.InstanceState.Name == "running")
+		}
+		if allRunning {
 			break
 		}
-
 		time.Sleep(5 * time.Second)
 	}
 
-	respDI, _ := conn.DescribeInstances(&ec2.DescribeInstancesInput{
-		InstanceIDs: []*string{&provider.instanceId},
-	})
-	ipAddress := respDI.Reservations[0].Instances[0].PublicIPAddress
-	if ipAddress == nil {
-		panic("IP address unknown")
-	}
+	urls := make([]string, 0)
+	for _, instanceId := range provider.instanceIds {
+		respDI, _ := conn.DescribeInstances(&ec2.DescribeInstancesInput{
+			InstanceIDs: []*string{instanceId},
+		})
+		ipAddress := respDI.Reservations[0].Instances[0].PublicIPAddress
+		if ipAddress == nil {
+			panic("IP address unknown")
+		}
 
-	url := fmt.Sprintf("http://%s:8000", *ipAddress)
-	blockUntilAvailable(url, 5*time.Second)
-	return []string{url}
+		url := fmt.Sprintf("http://%s:8000", *ipAddress)
+		blockUntilAvailable(url, 5*time.Second)
+
+		urls = append(urls, url)
+	}
+	return urls
 }
 
 func (provider *EC2Provider) Discard() {
@@ -143,7 +159,7 @@ func (provider *EC2Provider) Discard() {
 	})
 
 	_, err := conn.TerminateInstances(&ec2.TerminateInstancesInput{
-		InstanceIDs: []*string{&provider.instanceId},
+		InstanceIDs: provider.instanceIds,
 	})
 	if err != nil {
 		fmt.Println("EC2 instance termination failed. You might need to kill it yourself.", err)
@@ -154,13 +170,11 @@ func (provider *EC2Provider) Discard() {
 }
 
 func (provider *EC2Provider) CalcBill() (string, float64) {
-	const pricePerHour = 1.856
-	const instanceType = "c4.8xlarge"
-	/*# self.price_per_hour = 0.232
-	  # self.instance_type = 'c4.xlarge'
-	  # self.price_per_hour = 0.116
-	  # self.instance_type = 'c4.large'*/
-	return fmt.Sprintf("EC2 on-demand instance (%s) * 1", instanceType), pricePerHour
+	const pricePerHourPerInst = 1.856
+
+	pricePerHour := pricePerHourPerInst * float64(provider.instanceNum)
+	return fmt.Sprintf("EC2 on-demand instance (%s) * %d",
+		provider.instanceType, provider.instanceNum), pricePerHour
 }
 
 // Return security group id or nil.
