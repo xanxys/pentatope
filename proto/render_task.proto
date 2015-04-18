@@ -35,9 +35,7 @@ message RenderMovieTask {
 // It's not expected to distribute one RenderTask to
 // multiple nodes.
 message RenderTask {
-    // "cornell": hardcoded Cornell box-like scene.
-    // (Bunch of spheres in a tesseract)
-    optional string scene_name = 1;
+    optional string deprecated_scene_name = 1;
 
     // Average number of samples / px.
     // Note that actual # of samples can vary depending

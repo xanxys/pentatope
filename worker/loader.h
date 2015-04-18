@@ -22,11 +22,6 @@ public:
     invalid_task(const std::string& what);
 };
 
-// Create "cornell tesseract" scene.
-// TODO: serialize as prototxt under example/
-// and remove this function.
-std::unique_ptr<Scene> createCornellTesseract();
-
 Spectrum loadSpectrum(const SpectrumProto& sp);
 
 Eigen::Vector4f loadPoint(const Point& pt);

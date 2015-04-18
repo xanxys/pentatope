@@ -26,76 +26,6 @@ invalid_task::invalid_task(const std::string& what) :
 		std::runtime_error(what) {
 }
 
-
-// TODO: serialize as prototxt
-std::unique_ptr<Scene> createCornellTesseract() {
-    std::unique_ptr<Scene> scene_p(new Scene(fromRgb(0, 0, 0.1)));
-    Scene& scene = *scene_p;
-    // Create [-1,1]^3 * [0,2] box
-    // X walls: white
-    // Y-:green Y+:red
-    // Z-:yellow Z+:blue
-    // floor(W)
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(0, 0, 0, 0), Eigen::Vector4f(0, 0, 0, 1), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        ));
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(0, 0, 0, 2), Eigen::Vector4f(0, 0, 0, -1), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        ));
-    // walls(X)
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(-1, 0, 0, 1), Eigen::Vector4f(1, 0, 0, 0), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        ));
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(1, 0, 0, 1), Eigen::Vector4f(-1, 0, 0, 0), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        ));
-    // walls(Y)
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(0, -1, 0, 1), Eigen::Vector4f(0, 1, 0, 0), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 1, 0)))
-        ));
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(0, 1, 0, 1), Eigen::Vector4f(0, -1, 0, 0), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 0, 0)))
-        ));
-    // walls(Z)
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(0, 0, -1, 1), Eigen::Vector4f(0, 0, 1, 0), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 0)))
-        ));
-    scene.addObject(std::make_pair(
-        std::make_unique<Disc>(Eigen::Vector4f(0, 0, 1, 1), Eigen::Vector4f(0, 0, -1, 0), 5),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(0, 0, 1)))
-        ));
-
-    // object inside room
-    scene.addObject(std::make_pair(
-        std::make_unique<Sphere>(Eigen::Vector4f(0, 0, 0, 0.2), 0.2),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))
-        ));
-    scene.addObject(std::make_pair(
-        std::make_unique<Sphere>(Eigen::Vector4f(0, 0.5, 0.1, 0.5), 0.5),
-        std::unique_ptr<Material>(new GlassMaterial(1.5))
-        ));
-
-    
-    scene.addObject(std::make_pair(
-        std::unique_ptr<Geometry>(new OBB(
-            Pose(),
-            Eigen::Vector4f(0.4, 0.4, 0.4, 0.8))),
-        std::unique_ptr<Material>(new UniformLambertMaterial(fromRgb(1, 1, 1)))));
-
-    // light at center of ceiling
-    scene.addLight(std::make_unique<PointLight>(
-            Eigen::Vector4f(0, 0, 0, 1.9),
-            fromRgb(100, 100, 100)));
-    return scene_p;
-}
-
 // fast but ugly code to get file content onto memory.
 // http://stackoverflow.com/a/2602060
 std::string readFile(const std::string& path) {
@@ -273,14 +203,7 @@ std::unique_ptr<Scene> loadScene(const RenderScene& rs) {
 
 std::unique_ptr<Scene> loadSceneFromRenderTask(const RenderTask& rt) {
     std::unique_ptr<Scene> scene;
-    if(rt.has_scene_name()) {
-        if(rt.scene_name() == "cornell") {
-            scene = createCornellTesseract();
-        } else {
-            throw invalid_task(
-                "Unknown scene name: " + rt.scene_name());
-        }
-    } else if(rt.has_scene()) {
+    if(rt.has_scene()) {
         scene = loadScene(rt.scene());
     } else {
         throw invalid_task(
@@ -371,9 +294,6 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(const CameraConfig& config) 
 // and return (scene, camera, #samples/px)
 std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
         loadRenderTask(const RenderTask& rt) {
-    LOG(INFO) << "RenderTask scene: " <<
-        (rt.has_scene_name() ? rt.scene_name() : "<scene name unspecified>");
-
     std::unique_ptr<Scene> scene = loadSceneFromRenderTask(rt);
 
     if(!rt.has_camera()) {

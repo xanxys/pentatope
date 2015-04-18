@@ -303,7 +303,7 @@ objects {
 objects {
     geometry {
         type: SPHERE
-        [pentatope.DiscGeometry.geom] {
+        [pentatope.SphereGeometry.geom] {
             center {
                 x: 0
                 y: 0
@@ -327,7 +327,7 @@ objects {
 objects {
     geometry {
         type: SPHERE
-        [pentatope.DiscGeometry.geom] {
+        [pentatope.SphereGeometry.geom] {
             center {
                 x: 0
                 y: 0.5
@@ -348,6 +348,28 @@ objects {
     geometry {
         type: OBB
         [pentatope.OBBGeometry.geom] {
+            local_to_world {
+                rotation: 1
+                rotation: 0
+                rotation: 0
+                rotation: 0
+                rotation: 0
+                rotation: 1
+                rotation: 0
+                rotation: 0
+                rotation: 0
+                rotation: 0
+                rotation: 1
+                rotation: 0
+                rotation: 0
+                rotation: 0
+                rotation: 0
+                rotation: 1
+                translation: 0
+                translation: 0
+                translation: 0
+                translation: 0
+            }
             size: 0.4
             size: 0.4
             size: 0.4
@@ -368,7 +390,7 @@ objects {
 
 lights {
     type: POINT
-    [pentatope.PointLight.light] {
+    [pentatope.PointLightProto.light] {
         translation: 0
         translation: 0
         translation: 0
