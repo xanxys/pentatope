@@ -58,20 +58,17 @@ class TestSceneExamples(unittest.TestCase):
         self.assertTrue(
             os.path.isfile(os.path.join(self.temp_dir, "anim_demo.png")))
 
-    def test_cornell(self):
-        # Reduce cornell.proto parameters to accelerate test.
-        path_proto_temp = os.path.join(self.temp_dir, "cornell.prototxt")
-        path_proto_temp_inside = os.path.join(self.temp_dir_inside, "cornell.prototxt")
-        proto = open("example/cornell_tesseract.prototxt", "r").read() \
-            .replace('output_path: "./render.png"',
-                'output_path: "%s"' % os.path.join(self.temp_dir_inside, "cornell.png")) \
-            .replace('sample_per_pixel: 100', 'sample_per_pixel: 1')
-        with open(path_proto_temp, "w") as f:
-            f.write(proto)
-        # Run rendering.
-        self.run_pentatope(["--render", path_proto_temp_inside])
+    def test_static_cornell(self):
+        subprocess.call([
+            "example/animation_cornell_tesseract.py",
+            "--test",
+            "--output", os.path.join(self.temp_dir, "stat_cornell.pb"),
+            "--render_output", os.path.join(self.temp_dir_inside, "stat_cornell.png"),
+            ])
+        self.run_pentatope([
+            "--render", os.path.join(self.temp_dir_inside, "stat_cornell.pb")])
         self.assertTrue(
-            os.path.isfile(os.path.join(self.temp_dir, "cornell.png")))
+            os.path.isfile(os.path.join(self.temp_dir, "stat_cornell.png")))
 
 
 class TestPentatopeServer(unittest.TestCase):
@@ -106,11 +103,21 @@ class TestPentatopeServer(unittest.TestCase):
     def test_responds_ok(self):
         # Create request
         render_request = render_server_pb2.RenderRequest()
-        content = open('example/cornell_tesseract.prototxt').read()
-        text_format.Merge(content, render_request.task)
+        content = open('example/cornell_tesseract_scene.prototxt').read()
+        text_format.Merge(content, render_request.task.scene)
         render_request.task.sample_per_pixel = 1
         render_request.task.camera.size_x = 64
         render_request.task.camera.size_y = 48
+        render_request.task.camera.fov_x = 157
+        render_request.task.camera.fov_y = 150
+        render_request.task.camera.camera_type = "perspective2"
+        render_request.task.camera.local_to_world.rotation.extend([
+            1, 0, 0, 0,
+            0, 0, 0, 1,
+            0, 0, 1, 0,
+            0, -1, 0, 0])
+        render_request.task.camera.local_to_world.translation.extend([
+            0, -0.95, 0, 1])
         # Fetch result.
         http_resp_body = urllib2.urlopen(
             "http://localhost:%d" % self.port,
