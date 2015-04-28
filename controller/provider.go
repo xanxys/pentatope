@@ -27,6 +27,10 @@ type EC2Provider struct {
 	instanceType string
 }
 
+func (provider *LocalProvider) SafeToString() string {
+	return fmt.Sprintf("LocalProvider{%s}", provider.containerId)
+}
+
 func (provider *LocalProvider) Prepare() []string {
 	container_name := fmt.Sprintf("pentatope_local_worker_%d", rand.Intn(1000))
 	port := 20000 + rand.Intn(10000)
@@ -63,6 +67,11 @@ func NewEC2Provider(credential AWSCredential) *EC2Provider {
 	provider.instanceNum = 4
 	provider.instanceType = "c4.8xlarge"
 	return provider
+}
+
+func (provider *EC2Provider) SafeToString() string {
+	return fmt.Sprintf("EC2Provider{%s × %d}",
+		provider.instanceType, provider.instanceNum)
 }
 
 func (provider *EC2Provider) Prepare() []string {

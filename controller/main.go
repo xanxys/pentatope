@@ -39,6 +39,10 @@ Namely, they should follow these:
    any state before throwing the exception.
 */
 type Provider interface {
+	// Printing function that does not output senstitive information
+	// like secret keys.
+	SafeToString() string
+
 	Prepare() []string
 	Discard()
 	CalcBill() (string, float64)
@@ -146,7 +150,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	log.Println("Preparing providers in parallel")
 	for _, provider := range providers {
 		go func(provider Provider) {
-			log.Println("Preparing provider", provider)
+			log.Println("Preparing provider", provider.SafeToString())
 			urls := provider.Prepare()
 			defer func() {
 				provider.Discard()
@@ -177,7 +181,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 			for range urls {
 				<-cFeederDead
 			}
-			log.Println("Provider", provider, "ended its role")
+			log.Println("Provider", provider.SafeToString(), "ended its role")
 		}(provider)
 	}
 
