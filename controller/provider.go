@@ -66,6 +66,26 @@ func NewEC2Provider(credential AWSCredential) *EC2Provider {
 	provider.credential = credential
 	provider.instanceNum = 4
 	provider.instanceType = "c4.8xlarge"
+
+	conn := ec2.New(&aws.Config{
+		Region:      "us-west-1",
+		Credentials: &provider.credential,
+	})
+
+	hist, _ := conn.DescribeSpotPriceHistory(&ec2.DescribeSpotPriceHistoryInput{
+		ProductDescriptions: []*string{newString("Linux/UNIX")},
+		InstanceTypes:       []*string{&provider.instanceType},
+	})
+	log.Printf("Spot price history: %#v\n", hist)
+	for _, entry := range hist.SpotPriceHistory {
+		log.Printf("--")
+		log.Printf("AZ: %s\n", *entry.AvailabilityZone)
+		log.Printf("ProdDesc: %s\n", *entry.ProductDescription)
+		log.Printf("Type: %s\n", *entry.InstanceType)
+		log.Printf("Price: %s\n", *entry.SpotPrice)
+		log.Printf("Time: %s\n", *entry.Timestamp)
+	}
+
 	return provider
 }
 
