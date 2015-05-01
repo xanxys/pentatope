@@ -233,6 +233,9 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
+	debugPort := RunDebuggerFrontend()
+	log.Printf("Debugger interface: http://localhost:%d/debug\n", debugPort)
+
 	// Resource providers.
 	localFlag := flag.Bool("local", false, "Use this machine.")
 	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
