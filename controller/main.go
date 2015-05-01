@@ -233,8 +233,8 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	debugPort := RunDebuggerFrontend()
-	log.Printf("Debugger interface: http://localhost:%d/debug\n", debugPort)
+	debugFe := RunDebuggerFrontend()
+	log.Printf("Debugger interface: http://localhost:%d/debug\n", debugFe.Port)
 
 	// Resource providers.
 	localFlag := flag.Bool("local", false, "Use this machine.")
@@ -258,7 +258,9 @@ func main() {
 			if credential.AccessKey == "" || credential.SecretAccessKey == "" {
 				fmt.Printf("Couldn't read AccessKey or SecretAccessKey from %s\n", *awsFlag)
 			} else {
-				providers = append(providers, NewEC2Provider(credential))
+				ec2Prov := NewEC2Provider(credential)
+				debugFe.RegisterModule(ec2Prov)
+				providers = append(providers, ec2Prov)
 			}
 		}
 	}
