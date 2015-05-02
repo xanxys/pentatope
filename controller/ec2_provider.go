@@ -46,7 +46,7 @@ func (provider *EC2Provider) RenderDebugHTML(w io.Writer) {
 	dataText := []string{`["Time", "Price"]`}
 	for _, regionName := range regions {
 		conn := ec2.New(&aws.Config{
-			Region:      "us-west-1",
+			Region:      regionName,
 			Credentials: &provider.credential,
 		})
 
