@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -16,50 +13,12 @@ import (
 	"github.com/awslabs/aws-sdk-go/service/ec2"
 )
 
-type LocalProvider struct {
-	containerId string
-}
-
 type EC2Provider struct {
 	credential  AWSCredential
 	instanceIds []*string
 
 	instanceNum  int
 	instanceType string
-}
-
-func (provider *LocalProvider) SafeToString() string {
-	return fmt.Sprintf("LocalProvider{%s}", provider.containerId)
-}
-
-func (provider *LocalProvider) Prepare() []string {
-	container_name := fmt.Sprintf("pentatope_local_worker_%d", rand.Intn(1000))
-	port := 20000 + rand.Intn(10000)
-	cmd := exec.Command("sudo", "docker", "run",
-		"--detach=true",
-		"--name", container_name,
-		"--publish", fmt.Sprintf("%d:80", port),
-		"xanxys/pentatope-prod",
-		"/root/pentatope/worker")
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Run()
-	provider.containerId = strings.TrimSpace(out.String())
-	url := fmt.Sprintf("http://localhost:%d/", port)
-	blockUntilAvailable(url, time.Second)
-	return []string{url}
-}
-
-func (provider *LocalProvider) Discard() {
-	err := exec.Command("sudo", "docker", "rm", "-f", provider.containerId).Run()
-	if err != nil {
-		fmt.Println("Container clean up failed. You may need to clean up docker container manually ", err)
-	}
-}
-
-func (provider *LocalProvider) CalcBill() (string, float64) {
-	return "This machine", 0
 }
 
 func NewEC2Provider(credential AWSCredential) *EC2Provider {

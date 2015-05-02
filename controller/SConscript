@@ -9,7 +9,12 @@ env = Environment(
 
 env.Command(
     ['controller'],
-    ['main.go', 'provider.go', 'debugger.go'],
+    [
+        'debugger.go',
+        'ec2_provider.go',
+        'local_provider.go',
+        'main.go',
+    ],
     '/usr/local/go/bin/go build -o $TARGET -a -installsuffix cgo $SOURCES')
 
 env.Depends("controller", proto_files_go)
