@@ -30,23 +30,48 @@ func NewEC2Provider(credential AWSCredential) *EC2Provider {
 }
 
 func (provider *EC2Provider) RenderDebugHTML(w io.Writer) {
-	conn := ec2.New(&aws.Config{
-		Region:      "us-west-1",
-		Credentials: &provider.credential,
-	})
-
-	hist, _ := conn.DescribeSpotPriceHistory(&ec2.DescribeSpotPriceHistoryInput{
-		ProductDescriptions: []*string{newString("Linux/UNIX")},
-		InstanceTypes:       []*string{&provider.instanceType},
-	})
+	fmt.Fprintf(w, "<h1>EC2 Provider</h1>")
+	regions := []string{
+		"us-east-1",
+		"us-west-2",
+		"us-west-1",
+		"eu-west-1",
+		"eu-central-1",
+		"ap-southeast-1",
+		"ap-southeast-2",
+		"ap-northeast-1",
+		"sa-east-1",
+	}
 
 	dataText := []string{`["Time", "Price"]`}
-	for _, entry := range hist.SpotPriceHistory {
-		dataText = append(dataText,
-			fmt.Sprintf("[new Date(\"%s\"),%s]", *entry.Timestamp, *entry.SpotPrice))
-	}
-	dataTextEsc := "[" + strings.Join(dataText, ",") + "]"
+	for _, regionName := range regions {
+		conn := ec2.New(&aws.Config{
+			Region:      "us-west-1",
+			Credentials: &provider.credential,
+		})
 
+		hist, _ := conn.DescribeSpotPriceHistory(&ec2.DescribeSpotPriceHistoryInput{
+			ProductDescriptions: []*string{newString("Linux/UNIX")},
+			InstanceTypes:       []*string{&provider.instanceType},
+		})
+
+		for _, entry := range hist.SpotPriceHistory {
+			dataText = append(dataText,
+				fmt.Sprintf("[new Date(\"%s\"),%s]", *entry.Timestamp, *entry.SpotPrice))
+		}
+
+		if len(hist.SpotPriceHistory) > 0 {
+			entry := hist.SpotPriceHistory[0]
+			fmt.Fprintf(w, "<h2>First Entry for region: %s</h2>", regionName)
+			fmt.Fprintf(w, "AZ: %s\n", *entry.AvailabilityZone)
+			fmt.Fprintf(w, "ProdDesc: %s\n", *entry.ProductDescription)
+			fmt.Fprintf(w, "Type: %s\n", *entry.InstanceType)
+			fmt.Fprintf(w, "Price: %s\n", *entry.SpotPrice)
+			fmt.Fprintf(w, "Time: %s\n", *entry.Timestamp)
+		}
+	}
+
+	dataTextEsc := "[" + strings.Join(dataText, ",") + "]"
 	fmt.Fprintf(w,
 		`
 		<div id="chart_ec2provider" style="width:600px; height:300px"></div>
@@ -61,15 +86,6 @@ func (provider *EC2Provider) RenderDebugHTML(w io.Writer) {
 		}
 		</script>
 		`, dataTextEsc)
-
-	for _, entry := range hist.SpotPriceHistory {
-		fmt.Fprintf(w, "<h2>SPH</h2>")
-		fmt.Fprintf(w, "AZ: %s\n", *entry.AvailabilityZone)
-		fmt.Fprintf(w, "ProdDesc: %s\n", *entry.ProductDescription)
-		fmt.Fprintf(w, "Type: %s\n", *entry.InstanceType)
-		fmt.Fprintf(w, "Price: %s\n", *entry.SpotPrice)
-		fmt.Fprintf(w, "Time: %s\n", *entry.Timestamp)
-	}
 }
 
 func (provider *EC2Provider) SafeToString() string {
