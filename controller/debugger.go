@@ -32,11 +32,20 @@ func RunDebuggerFrontend() *DebugFrontend {
 
 	http.HandleFunc("/debug", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "<!DOCTYPE html>")
+		fmt.Fprintf(w, "<html>")
+		// Header
+		fmt.Fprintf(w, "<head>")
+		fmt.Fprintf(w, `<script type="text/javascript" src="https://www.google.com/jsapi"></script>`)
+		fmt.Fprintf(w, "</head>")
+		// Body
+		fmt.Fprintf(w, "<body>")
 		fmt.Fprintf(w, "#Debug modules: %d", len(debugFe.modules))
 		for _, mod := range debugFe.modules {
 			fmt.Fprintf(w, "<hr/>")
 			mod.RenderDebugHTML(w)
 		}
+		fmt.Fprintf(w, "</body>")
+		fmt.Fprintf(w, "</html>")
 	})
 	go http.Serve(ln, nil)
 

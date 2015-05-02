@@ -80,6 +80,29 @@ func (provider *EC2Provider) RenderDebugHTML(w io.Writer) {
 		ProductDescriptions: []*string{newString("Linux/UNIX")},
 		InstanceTypes:       []*string{&provider.instanceType},
 	})
+
+	dataText := []string{`["Time", "Price"]`}
+	for _, entry := range hist.SpotPriceHistory {
+		dataText = append(dataText,
+			fmt.Sprintf("[new Date(\"%s\"),%s]", *entry.Timestamp, *entry.SpotPrice))
+	}
+	dataTextEsc := "[" + strings.Join(dataText, ",") + "]"
+
+	fmt.Fprintf(w,
+		`
+		<div id="chart_ec2provider" style="width:600px; height:300px"></div>
+		<script>
+		google.load("visualization", "1", {packages:["corechart"]});
+		google.setOnLoadCallback(draw_ec2provider_chart);
+		function draw_ec2provider_chart() {
+			var data = google.visualization.arrayToDataTable(%s);
+			var options = {};
+			new google.visualization.ScatterChart(
+				document.getElementById("chart_ec2provider")).draw(data, options);
+		}
+		</script>
+		`, dataTextEsc)
+
 	for _, entry := range hist.SpotPriceHistory {
 		fmt.Fprintf(w, "<h2>SPH</h2>")
 		fmt.Fprintf(w, "AZ: %s\n", *entry.AvailabilityZone)
