@@ -5,6 +5,7 @@ import math
 import numpy as np
 import render_task_pb2 as proto
 import scipy.ndimage
+import scipy.linalg as la
 
 
 def generate_fractal_noise(size, deterministic=False):
@@ -68,7 +69,8 @@ def add_land(scene):
         for iy in xrange(n - 1):
             for iz in xrange(n - 1):
                 for tetra in tetrahedrons:
-                    vs = [img_pos[ix + dx, iy + dy, iz + dz] for (dx, dy, dz) in tetra]
+                    vs = [img_pos[ix + dx, iy + dy, iz + dz]
+                          for (dx, dy, dz) in tetra]
 
                     # Create an object as a new element in the scene.
                     obj = scene.objects.add()
@@ -90,10 +92,98 @@ def add_land(scene):
                     lambert.reflectance.g = 0.25
                     lambert.reflectance.b = 0.2
 
+    # Plant trees.
+    for i in xrange(100):
+        origin = img_pos[tuple(np.random.randint(0, n, 3))]
+        for obj in create_tree(origin):
+            scene.objects.add().CopyFrom(obj)
+
+
+def create_tree(origin, up=np.array([0, 0, 0, 1])):
+    """
+    Instantiate a tree-like something using L-system.
+    """
+    objects = []
+
+    def add_segment(p0, p1):
+        # just create basis using randomized algorithm
+        # We create OBB with
+        # size = (l, t, t, t)
+        # and want to calculate a rotation matrix m,
+        # such that np.dot(m, (1, 0, 0, 0)) == n
+        l = la.norm(p1 - p0)
+        t = l * 0.1
+        n = (p1 - p0) / l
+        size = np.array([l, t, t, t])
+
+        rot_local_to_world = np.zeros([4, 4])
+        rot_local_to_world[:, 0] = n
+        for axis in range(1, 4):
+            e = np.random.randn(4)
+            # Make e orthogonal to all existing axes.
+            for axis_to_remove in range(0, axis):
+                a = rot_local_to_world[:, axis_to_remove]
+                e -= a * np.dot(a, e)
+            e /= la.norm(e)
+            rot_local_to_world[axis] = e
+        if la.det(rot_local_to_world) < 0:
+            rot_local_to_world[:, 0] *= -1
+
+        # Emit object.
+        sobj = proto.SceneObject()
+        geom = sobj.geometry
+        geom.type = proto.ObjectGeometry.OBB
+        obb = geom.Extensions[proto.OBBGeometry.geom]
+        obb.local_to_world.rotation.extend(list(rot_local_to_world.flatten()))
+        obb.local_to_world.translation.extend(list((p0 + p1) / 2))
+        obb.size.extend(list(size))
+
+        mat = sobj.material
+        mat.type = proto.ObjectMaterial.UNIFORM_LAMBERT
+        lambert = mat.Extensions[
+            proto.UniformLambertMaterialProto.material]
+        lambert.reflectance.r = 0.8
+        lambert.reflectance.g = 0.3
+        lambert.reflectance.b = 0.3
+
+        objects.append(sobj)
+
+    def extend(base_pos, base_dir, segment_len):
+        if segment_len < 0.3:
+            return
+        new_base = base_pos + base_dir * segment_len
+        add_segment(base_pos, new_base)
+
+        # Create two symmetric children whose center is slightly
+        # different from base_dir.
+        new_dir = sample_random(base_dir, 0.2)
+        child_dir0 = sample_random(new_dir, 0.5)
+        perp_child_dir0 = child_dir0 - new_dir * np.dot(child_dir0, new_dir)
+        child_dir1 = child_dir0 - 2 * perp_child_dir0
+
+        extend(new_base, child_dir0, segment_len * 0.5)
+        extend(new_base, child_dir1, segment_len * 0.5)
+
+    extend(origin, sample_random(up, 0.1), 1.0)
+    return objects
+
+
+def sample_random(normal, angle):
+    """
+    Randomly create an unit vector which is oriented
+    by the given angle from normal.
+
+    angle: radian
+    """
+    perp = np.random.randn(4)
+    perp -= normal * np.dot(normal, perp)
+    perp /= la.norm(perp)
+    return math.cos(angle) * normal + math.sin(angle) * perp
+
 
 def set_landscape(scene):
     """
-    Set everything (trees, lands, lights) to scene.
+    Set everything(trees, lands, lights) to scene.
     """
     scene.background_radiance.r = 1e-3
     scene.background_radiance.g = 1e-3
