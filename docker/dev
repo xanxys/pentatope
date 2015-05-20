@@ -33,9 +33,3 @@ ENV GOPATH /root/go
 RUN go get github.com/awslabs/aws-sdk-go; \
     go get github.com/vaughan0/go-ini; \
     go get code.google.com/p/gogoprotobuf/proto
-
-# Get Project and compile
-RUN cd /root; \
-    git clone --depth=1 https://github.com/xanxys/pentatope; \
-    cd pentatope; \
-    scons -j 8; \

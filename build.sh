@@ -24,7 +24,12 @@ sudo rm -rf build-temp
 sudo docker run --rm \
 	--volume $(pwd):/root/local \
 	xanxys/pentatope-dev \
-	cp -Rv /root/pentatope/build /root/local/build-temp/
+	sh -c \
+	'cd /root && \
+	git clone --depth=1 https://github.com/xanxys/pentatope && \
+	cd pentatope && \
+	scons -j 8 && \
+	cp -Rv /root/pentatope/build /root/local/build-temp/'
 sudo chmod -R a+rw build-temp
 
 # Create prod image by copying only the binary
