@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/awslabs/aws-sdk-go/aws"
+	"github.com/awslabs/aws-sdk-go/aws/credentials"
 	"github.com/awslabs/aws-sdk-go/service/ec2"
 )
 
 type EC2Provider struct {
-	credential  AWSCredential
+	credential  *credentials.Credentials
 	instanceIds []*string
 
 	instanceNum  int
@@ -23,7 +24,11 @@ type EC2Provider struct {
 
 func NewEC2Provider(credential AWSCredential) *EC2Provider {
 	provider := new(EC2Provider)
-	provider.credential = credential
+	provider.credential = credentials.NewStaticCredentials(
+		credential.AccessKey,
+		credential.SecretAccessKey,
+		"")
+
 	provider.instanceNum = 4
 	provider.instanceType = "c4.8xlarge"
 	return provider
@@ -47,7 +52,7 @@ func (provider *EC2Provider) RenderDebugHTML(w io.Writer) {
 	for _, regionName := range regions {
 		conn := ec2.New(&aws.Config{
 			Region:      regionName,
-			Credentials: &provider.credential,
+			Credentials: provider.credential,
 		})
 
 		hist, _ := conn.DescribeSpotPriceHistory(&ec2.DescribeSpotPriceHistoryInput{
@@ -98,7 +103,7 @@ func (provider *EC2Provider) Prepare() []string {
 
 	conn := ec2.New(&aws.Config{
 		Region:      "us-west-1",
-		Credentials: &provider.credential,
+		Credentials: provider.credential,
 	})
 
 	sgId := provider.setSecurityGroup(true)
@@ -183,7 +188,7 @@ func (provider *EC2Provider) Prepare() []string {
 func (provider *EC2Provider) Discard() {
 	conn := ec2.New(&aws.Config{
 		Region:      "us-west-1",
-		Credentials: &provider.credential,
+		Credentials: provider.credential,
 	})
 
 	_, err := conn.TerminateInstances(&ec2.TerminateInstancesInput{
@@ -210,7 +215,7 @@ func (provider *EC2Provider) setSecurityGroup(exist bool) *string {
 	sgName := "pentatope_sg"
 	conn := ec2.New(&aws.Config{
 		Region:      "us-west-1",
-		Credentials: &provider.credential,
+		Credentials: provider.credential,
 	})
 
 	// Destroy current SG if exists, and confirm deletion.
@@ -271,13 +276,6 @@ func newInt64(x int64) *int64 {
 type AWSCredential struct {
 	AccessKey       string `json:"access_key"`
 	SecretAccessKey string `json:"secret_access_key"`
-}
-
-func (credential *AWSCredential) Credentials() (*aws.Credentials, error) {
-	return &aws.Credentials{
-		AccessKeyID:     credential.AccessKey,
-		SecretAccessKey: credential.SecretAccessKey,
-	}, nil
 }
 
 func blockUntilAvailable(url string, interval time.Duration) {
