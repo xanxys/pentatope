@@ -68,8 +68,11 @@ def add_land(scene):
     for ix in xrange(n - 1):
         for iy in xrange(n - 1):
             for iz in xrange(n - 1):
+                parity = (ix + iy + iz) % 2
                 for tetra in tetrahedrons:
-                    vs = [img_pos[ix + dx, iy + dy, iz + dz]
+                    # Flip x-axis in odd-parity cubes to close the gap.
+                    # See https://github.com/xanxys/pentatope/issues/30
+                    vs = [img_pos[ix + (dx ^ parity), iy + dy, iz + dz]
                           for (dx, dy, dz) in tetra]
 
                     # Create an object as a new element in the scene.
