@@ -12,43 +12,97 @@
 #
 set -e  # exit immediately after an error
 
-echo "Creating base (1/4)"
-sudo docker build -t xanxys/pentatope-base -f docker/base ./docker
+readonly SOURCE_TYPE=$1
 
-echo "Creating dev (2/4)"
-sudo docker build -t xanxys/pentatope-dev -f docker/dev ./docker
+# Export contents of the working directory to $output_path
+pack_source_working() {
+	local output_path=$1
 
-echo "Creating prod (3/4)"
-# Build inside dev container and extract all build product
-sudo rm -rf build-temp
-sudo docker run --rm \
-	--volume $(pwd):/root/local \
-	xanxys/pentatope-dev \
-	sh -c \
-	'cd /root && \
-	git clone --depth=1 https://github.com/xanxys/pentatope && \
-	cd pentatope && \
-	scons -j 8 && \
-	cp -Rv /root/pentatope/build /root/local/build-temp/'
-sudo chmod -R a+rw build-temp
+	tar cvf $output_path \
+		$(git ls-files --others --exclude-standard; git ls-files)
+}
 
-# Create prod image by copying only the binary
-cp build-temp/worker/worker docker/
-cp build-temp/controller/controller docker/
-sudo docker build -t xanxys/pentatope-prod -f docker/prod ./docker
+# Export spcified slice from git repository and put to output_path
+pack_source_git() {
+	local git_hash=$1
+	local output_path=$2
 
-# Copy python proto files to local directories (controller & example)
-cp build-temp/controller/controller ./pentatope_controller
-cp build-temp/proto/*.py example/
+	echo "Extracting $git_hash to $output_path"
+	git archive -o $output_path $git_hash
+}
 
-# Remove build artifacts immediately because they're not runnable outside
-# containers.
-sudo rm -rf build-temp
+# Export specified source code as tarball at output_path.
+pack_source() {
+	local output_path=$1
 
-echo "Pushing prod (4/4) (This step could fail you're not xanxys)"
-# Run worker integration tests using local docker.
-./test_smoke.py
+	case $SOURCE_TYPE in
+		--working)
+			echo "Using sources from current working directory"
+			pack_source_working $output_path
+			;;
+		--head-local)
+			echo "Using HEAD of local git"
+			pack_source_git $(git log -n 1 --pretty=format:%H) \
+				$output_path
+			;;
+		--head-origin)
+			echo "Using HEAD of github"
+			pack_source_git $(git log -n 1 --pretty=format:%H origin) \
+				$output_path
+			;;
+		*)
+			echo "Unknown soucre type option: $SOURCE_TYPE"
+			exit 1
+	esac
+}
 
-sudo docker push xanxys/pentatope-prod
+main() {
+	echo "Creating base (1/4)"
+	sudo docker build -t xanxys/pentatope-base -f docker/base ./docker
 
-echo "Done!"
+	echo "Creating dev (2/4)"
+	sudo docker build -t xanxys/pentatope-dev -f docker/dev ./docker
+
+	echo "Creating prod (3/4)"
+	local pack_path=$(mktemp --suffix="-pentatope-src-pack.tar")
+	local build_path=$(mktemp -d --suffix="-pentatope-build")
+	pack_source $pack_path
+	# Build inside dev container and extract all build product
+	sudo rm -rf build-temp
+	sudo docker run --rm \
+		--volume $pack_path:/root/src-pack.tar \
+		--volume $build_path:/root/build \
+		xanxys/pentatope-dev \
+		sh -c \
+		'cd /root && \
+		mkdir pentatope && \
+		tar xvf src-pack.tar --directory pentatope && \
+		cd pentatope && \
+		scons -j 8 && \
+		cp -Rv /root/pentatope/build/* /root/build'
+	sudo chmod -R a+rw $build_path
+
+	# Create prod image by copying only the binary
+	cp $build_path/worker/worker docker/
+	cp $build_path/controller/controller docker/
+	sudo docker build -t xanxys/pentatope-prod -f docker/prod ./docker
+
+	# Copy python proto files to local directories (controller & example)
+	cp $build_path/controller/controller ./pentatope_controller
+	cp $build_path/proto/*.py example/
+
+	# Remove build artifacts immediately because they're not runnable outside
+	# containers.
+	sudo rm -rf $pack_path
+	sudo rm -rf $build_path
+
+	echo "Pushing prod (4/4) (This step could fail you're not xanxys)"
+	# Run worker integration tests using local docker.
+	./test_smoke.py
+
+	sudo docker push xanxys/pentatope-prod
+
+	echo "Done!"
+}
+
+main
