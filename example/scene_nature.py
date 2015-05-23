@@ -125,9 +125,14 @@ def create_tree(origin, up=np.array([0, 0, 0, 1])):
                 a = rot_local_to_world[:, axis_to_remove]
                 e -= a * np.dot(a, e)
             e /= la.norm(e)
-            rot_local_to_world[axis] = e
+            rot_local_to_world[:, axis] = e
         if la.det(rot_local_to_world) < 0:
             rot_local_to_world[:, 0] *= -1
+
+        if abs(la.det(rot_local_to_world) - 1) > 1e-6:
+            print("det=", la.det(rot_local_to_world))
+            print(rot_local_to_world)
+        assert(abs(la.det(rot_local_to_world) - 1) <= 1e-6)
 
         # Emit object.
         sobj = proto.SceneObject()

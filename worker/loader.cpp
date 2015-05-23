@@ -235,7 +235,10 @@ Pose loadPoseFromRigidTransform(const RigidTransform& rigid) {
         LOG(WARNING) << "rotation not found; defaults to no rotation";
     }
     if(std::abs(rot.determinant() - 1) > 1e-6) {
-        throw std::runtime_error("invalid rotation (determinant must be 1)");
+        std::string rot_str;
+        google::protobuf::TextFormat::PrintToString(rigid, &rot_str);
+        throw std::runtime_error(
+            "invalid rotation (determinant must be 1)\n" + rot_str);
     }
     // trans
     if(rigid.translation_size() != 0) {
