@@ -19,7 +19,6 @@ import tempfile
 import time
 import unittest
 import urllib2
-sys.path.append('build/proto')
 import render_server_pb2
 
 

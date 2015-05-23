@@ -90,6 +90,7 @@ main() {
 	# Copy python proto files to local directories (controller & example)
 	cp $build_path/controller/controller ./pentatope_controller
 	cp $build_path/proto/*.py example/
+	cp $build_path/proto/*.py ./
 
 	# Remove build artifacts immediately because they're not runnable outside
 	# containers.
