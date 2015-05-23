@@ -93,7 +93,7 @@ def add_land(scene):
                     lambert.reflectance.b = 0.2
 
     # Plant trees.
-    for i in xrange(100):
+    for i in xrange(5000):
         origin = img_pos[tuple(np.random.randint(0, n, 3))]
         for obj in create_tree(origin):
             scene.objects.add().CopyFrom(obj)
