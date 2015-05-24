@@ -97,11 +97,9 @@ main() {
 	sudo rm -rf $pack_path
 	sudo rm -rf $build_path
 
-	echo "Pushing prod (4/4) (This step could fail if you're not xanxys)"
+	echo "Testing container (4/4)"
 	# Run worker integration tests using local docker.
 	./test_smoke.py
-
-	sudo docker push xanxys/pentatope-prod
 
 	echo "Done!"
 }
