@@ -38,6 +38,21 @@ build images based on it, it's too time-consuming for rapid iterations.
 You can use `xanxys/pentatope-dev` image and mounting local directory inside
 a container. (e.g. `sudo docker run -t -i --rm -v $(pwd):/root/local -p 8080:80 xanxys/pentatope-dev bash`)
 
+## Credentials
+
+### AWS (`--aws`)
+Your access key in the following JSON:
+```
+{
+	"access_key": "<Your Access Key>",
+	"secret_access_key": "<Your Secret Access Key>"
+}
+
+```
+
+### GCE (`--gce`)
+Your service account oauth key in JSON format, as downloaded from the console.
+
 
 ## References
 * [Mathematical proof etc. on google drive](https://docs.google.com/document/d/1lfWarQdW_cZsIxPnigJCLeeWBzgZ6UGsgGNOq_5b1J8/edit?usp=sharing) (commentable, non-editable)

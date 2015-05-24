@@ -97,7 +97,7 @@ main() {
 	sudo rm -rf $pack_path
 	sudo rm -rf $build_path
 
-	echo "Pushing prod (4/4) (This step could fail you're not xanxys)"
+	echo "Pushing prod (4/4) (This step could fail if you're not xanxys)"
 	# Run worker integration tests using local docker.
 	./test_smoke.py
 
