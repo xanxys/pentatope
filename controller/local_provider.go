@@ -34,7 +34,7 @@ func (provider *LocalProvider) Prepare() []string {
 	provider.containerId = strings.TrimSpace(out.String())
 	log.Printf("LocalProvider docker container id: %s", provider.containerId)
 	url := fmt.Sprintf("http://localhost:%d/", port)
-	blockUntilAvailable(url, time.Second)
+	BlockUntilAvailable(url, time.Second)
 	return []string{url}
 }
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
@@ -176,7 +175,7 @@ func (provider *EC2Provider) Prepare() []string {
 		}
 
 		url := fmt.Sprintf("http://%s:8000", *ipAddress)
-		blockUntilAvailable(url, 5*time.Second)
+		BlockUntilAvailable(url, 5*time.Second)
 
 		urls = append(urls, url)
 	}
@@ -274,17 +273,4 @@ func newInt64(x int64) *int64 {
 type AWSCredential struct {
 	AccessKey       string `json:"access_key"`
 	SecretAccessKey string `json:"secret_access_key"`
-}
-
-func blockUntilAvailable(url string, interval time.Duration) {
-	for {
-		log.Println("Pinging", url, "for RPC availability")
-		httpResp, _ := http.Post(url,
-			"application/x-protobuf", strings.NewReader("PING"))
-		if httpResp != nil && httpResp.StatusCode == 400 {
-			break
-		}
-		time.Sleep(interval)
-	}
-	log.Println(url, "is now accepting request")
 }
