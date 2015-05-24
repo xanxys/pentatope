@@ -8,7 +8,7 @@ import sys
 
 
 def camera_config_nature_duration():
-    return 1.0
+    return 5.0
 
 
 def camera_config_nature(t, args, camera_config, image_size):
@@ -29,7 +29,7 @@ def camera_config_nature(t, args, camera_config, image_size):
     # world <- stage
     # lookat (0, 0, 0, 1)
     # by (X,Y) & (X,Z)-rotation
-    pos0 = np.array([0, 0, t * 2, 4])
+    pos0 = np.array([0, 0, t * 0.4, 4])
 
     # stage_to_world = np.dot(rot_xy, rot_xz)
     stage_to_world = np.eye(4)
@@ -53,7 +53,7 @@ Generate one of the shots of scenes.""",
     # common flag
     parser.add_argument(
         '--test', action='store_true',
-        help='Lower sample/px and smaller resolution for quick testing.')
+        help='Lower sample/px, resolution, and fps for quick testing.')
     # command flag
     parser.add_argument(
         '--output', type=str,
@@ -81,10 +81,11 @@ Generate one of the shots of scenes.""",
     if args.test:
         sample_per_pixel = 15
         image_size = (160, 120)
+        fps = 6
     else:
         sample_per_pixel = 250
         image_size = (640, 480)
-    fps = 30
+        fps = 30
 
     if args.output is not None:
         task = proto.RenderTask()
