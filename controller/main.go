@@ -224,19 +224,9 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 }
 
-func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	debugFe := RunDebuggerFrontend()
-	log.Printf("Debugger interface: http://localhost:%d/debug\n", debugFe.Port)
-
-	// Resource providers.
-	localFlag := flag.Bool("local", false, "Use this machine.")
-	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
-	// I/O
-	input := flag.String("input", "", "Input .pb file containing an animation.")
-	outputMp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
-	flag.Parse()
+// Try to instantiate all specified providers. Note that result could be empty.
+func createProviders(debugFe *DebugFrontend,
+	localFlag *bool, awsFlag *string, gceFlag *string) []Provider {
 
 	var providers []Provider
 	if *localFlag {
@@ -258,6 +248,33 @@ func main() {
 			}
 		}
 	}
+	if *gceFlag != "" {
+		gceKey, err := ioutil.ReadFile(*gceFlag)
+		if err != nil {
+			log.Println("Ignoring GCE because credential key couldn't be read.")
+		} else {
+			providers = append(providers, NewGCEProvider(gceKey))
+		}
+	}
+	return providers
+}
+
+func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	debugFe := RunDebuggerFrontend()
+	log.Printf("Debugger interface: http://localhost:%d/debug\n", debugFe.Port)
+
+	// Resource providers.
+	localFlag := flag.Bool("local", false, "Use this machine.")
+	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
+	gceFlag := flag.String("gce", "", "Use Google Compute Engine with a text file containing API key.")
+	// I/O
+	input := flag.String("input", "", "Input .pb file containing an animation.")
+	outputMp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
+	flag.Parse()
+
+	providers := createProviders(debugFe, localFlag, awsFlag, gceFlag)
 	if len(providers) == 0 {
 		log.Println("You need at least one usable provider.")
 		os.Exit(1)

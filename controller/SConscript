@@ -10,10 +10,7 @@ env = Environment(
 env.Command(
     ['controller'],
     [
-        'debugger.go',
-        'ec2_provider.go',
-        'local_provider.go',
-        'main.go',
+        Glob('*.go'),
     ],
     '/usr/local/go/bin/go build -o $TARGET -a -installsuffix cgo $SOURCES')
 
