@@ -47,7 +47,6 @@ Your access key in the following JSON:
 	"access_key": "<Your Access Key>",
 	"secret_access_key": "<Your Secret Access Key>"
 }
-
 ```
 
 ### GCE (`--gce`)
