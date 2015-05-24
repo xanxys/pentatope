@@ -99,8 +99,6 @@ func (provider *EC2Provider) SafeToString() string {
 }
 
 func (provider *EC2Provider) Prepare() []string {
-	const n = 4
-
 	conn := ec2.New(&aws.Config{
 		Region:      "us-west-1",
 		Credentials: provider.credential,
@@ -126,8 +124,8 @@ func (provider *EC2Provider) Prepare() []string {
 
 	resp, err := conn.RunInstances(&ec2.RunInstancesInput{
 		ImageID:          &imageId,
-		MaxCount:         aws.Long(n),
-		MinCount:         aws.Long(n),
+		MaxCount:         aws.Long(int64(provider.instanceNum)),
+		MinCount:         aws.Long(int64(provider.instanceNum)),
 		InstanceType:     &provider.instanceType,
 		UserData:         &userData,
 		SecurityGroupIDs: []*string{sgId},
@@ -152,7 +150,7 @@ func (provider *EC2Provider) Prepare() []string {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		if len(resp.InstanceStatuses) < n {
+		if len(resp.InstanceStatuses) < provider.instanceNum {
 			log.Println("Number of statuses is too few")
 			time.Sleep(5 * time.Second)
 			continue
