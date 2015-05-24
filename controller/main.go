@@ -142,8 +142,8 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 	defer os.RemoveAll(imageDir)
 
-	cTask := make(chan *TaskShard)
-	cResult := make(chan bool)
+	cTask := make(chan *TaskShard, 1)
+	cResult := make(chan bool, len(task.Frames))
 	cFinishers := make([]chan bool, 0)
 	cDiscardEnded := make(chan bool)
 
@@ -185,21 +185,15 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 		}(provider)
 	}
 
-	cResultAggregate := make(chan bool)
-	go func() {
-		for range task.Frames {
-			<-cResult
-		}
-		cResultAggregate <- true
-	}()
-
 	log.Println("Feeding tasks")
 	for ix, frameConfig := range task.Frames {
 		log.Println("Queueing", ix)
 		cTask <- &TaskShard{ix, frameConfig}
 	}
 	log.Println("Waiting all shards to finish")
-	<-cResultAggregate
+	for range task.Frames {
+		<-cResult
+	}
 	log.Println("Sending terminate requests")
 	for _, cFinisher := range cFinishers {
 		cFinisher <- true
