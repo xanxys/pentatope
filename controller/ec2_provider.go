@@ -113,8 +113,8 @@ func (provider *EC2Provider) Prepare() []string {
 			` - docker`,
 			`runcmd:`,
 			` - ["/etc/init.d/docker", "start"]`,
-			` - ["docker", "pull", "xanxys/pentatope-prod"]`,
-			` - ["docker", "run", "--detach=true", "--publish", "8000:80", "xanxys/pentatope-prod", "/root/pentatope/worker"]`,
+			` - ["docker", "pull", "docker.io/xanxys/pentatope-prod"]`,
+			` - ["docker", "run", "--detach=true", "--publish", "8000:80", "docker.io/xanxys/pentatope-prod", "/root/pentatope/worker"]`,
 		}, "\n")
 
 	imageId := "ami-d114f295" // us-west-1

@@ -55,8 +55,8 @@ func (provider *GCEProvider) Prepare() []string {
 			`apt-get update`,
 			`apt-get -y install docker.io`,
 			`service docker start`,
-			`docker pull xanxys/pentatope-prod`,
-			`docker run --detach=true --publish 8000:80 xanxys/pentatope-prod /root/pentatope/worker`,
+			`docker pull docker.io/xanxys/pentatope-prod`,
+			`docker run --publish 8000:80 docker.io/xanxys/pentatope-prod /root/pentatope/worker`,
 		}, "\n")
 
 	for ix := 0; ix < provider.instanceNum; ix++ {

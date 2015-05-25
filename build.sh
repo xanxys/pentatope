@@ -58,10 +58,10 @@ pack_source() {
 
 main() {
 	echo "Creating base (1/4)"
-	sudo docker build -t xanxys/pentatope-base -f docker/base ./docker
+	sudo docker build -t docker.io/xanxys/pentatope-base -f docker/base ./docker
 
 	echo "Creating dev (2/4)"
-	sudo docker build -t xanxys/pentatope-dev -f docker/dev ./docker
+	sudo docker build -t docker.io/xanxys/pentatope-dev -f docker/dev ./docker
 
 	echo "Creating prod (3/4)"
 	local pack_path=$(mktemp --suffix="-pentatope-src-pack.tar")
@@ -85,7 +85,7 @@ main() {
 	# Create prod image by copying only the binary
 	cp $build_path/worker/worker docker/
 	cp $build_path/controller/controller docker/
-	sudo docker build -t xanxys/pentatope-prod -f docker/prod ./docker
+	sudo docker build -t docker.io/xanxys/pentatope-prod -f docker/prod ./docker
 
 	# Copy python proto files to local directories (controller & example)
 	cp $build_path/controller/controller ./pentatope_controller

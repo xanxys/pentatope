@@ -30,7 +30,7 @@ class TestSceneExamples(unittest.TestCase):
         assert(temp_dir_name != '')
         self.temp_dir_inside = os.path.join("/root/local", temp_dir_name)
 
-        self.image_name = "xanxys/pentatope-prod"
+        self.image_name = "docker.io/xanxys/pentatope-prod"
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
@@ -72,7 +72,7 @@ class TestSceneExamples(unittest.TestCase):
 
 class TestPentatopeServer(unittest.TestCase):
     def setUp(self):
-        self.image_name = "xanxys/pentatope-prod"
+        self.image_name = "docker.io/xanxys/pentatope-prod"
         self.container_name = "pentatope_test_smoke"
         self.port = random.randint(35000, 50000)
 
