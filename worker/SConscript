@@ -13,7 +13,7 @@ else:
 
 env = Environment(
     CXX='clang++',
-    CXXFLAGS='-std=c++14 -Wall -Wextra',
+    CXXFLAGS='-std=c++14 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-missing-braces',
     CCFLAGS=cc_flags,
     CPPPATH=[
         '/usr/include/eigen3',
