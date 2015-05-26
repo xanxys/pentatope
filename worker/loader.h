@@ -48,8 +48,8 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(
     const CameraConfig& config);
 
 // load RenderTask from given prototxt or binary proto file,
-// and return (scene, camera, #samples/px, output_path)
-std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
+// and return (scene, camera, #samples/px)
+std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
     loadRenderTask(const RenderTask& task);
 
 

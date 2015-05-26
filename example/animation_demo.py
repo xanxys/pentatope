@@ -58,9 +58,6 @@ Generate one of the shots of scenes.""",
     parser.add_argument(
         '--output', type=str,
         help="Output path of RenderTask in .pb.")
-    parser.add_argument(
-        '--render_output', type=str,
-        help="Deferred output path of rendered image.")
 
     parser.add_argument(
         '--shot_nature', type=str,
@@ -68,13 +65,7 @@ Generate one of the shots of scenes.""",
     args = parser.parse_args()
 
     # verify command
-    if args.output is not None:
-        if args.render_output is None:
-            print("--render_output is required for --output")
-            sys.exit(1)
-    elif args.shot_nature is not None:
-        pass
-    else:
+    if args.output is None and args.shot_nature is None:
         print("Either --output or --shot_nature is required")
         sys.exit(1)
 
@@ -90,7 +81,6 @@ Generate one of the shots of scenes.""",
     if args.output is not None:
         task = proto.RenderTask()
         task.sample_per_pixel = sample_per_pixel
-        task.output_path = args.render_output
         camera_config_nature(0, args, task.camera, image_size)
         scene_nature.set_landscape(task.scene)
         with open(args.output, "wb") as f_task:

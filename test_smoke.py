@@ -50,10 +50,11 @@ class TestSceneExamples(unittest.TestCase):
             "example/animation_demo.py",
             "--test",
             "--output", os.path.join(self.temp_dir, "anim_demo.pb"),
-            "--render_output", os.path.join(self.temp_dir_inside, 'anim_demo.png')
             ])
         self.run_pentatope([
-            "--render", os.path.join(self.temp_dir_inside, "anim_demo.pb")])
+            "--render", os.path.join(self.temp_dir_inside, "anim_demo.pb"),
+            "--output", os.path.join(self.temp_dir_inside, 'anim_demo.png'),
+            ])
         self.assertTrue(
             os.path.isfile(os.path.join(self.temp_dir, "anim_demo.png")))
 
@@ -62,10 +63,11 @@ class TestSceneExamples(unittest.TestCase):
             "example/animation_cornell_tesseract.py",
             "--test",
             "--output", os.path.join(self.temp_dir, "stat_cornell.pb"),
-            "--render_output", os.path.join(self.temp_dir_inside, "stat_cornell.png"),
             ])
         self.run_pentatope([
-            "--render", os.path.join(self.temp_dir_inside, "stat_cornell.pb")])
+            "--render", os.path.join(self.temp_dir_inside, "stat_cornell.pb"),
+            "--output", os.path.join(self.temp_dir_inside, "stat_cornell.png"),
+            ])
         self.assertTrue(
             os.path.isfile(os.path.join(self.temp_dir, "stat_cornell.png")))
 

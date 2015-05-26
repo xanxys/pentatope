@@ -35,8 +35,6 @@ message RenderMovieTask {
 // It's not expected to distribute one RenderTask to
 // multiple nodes.
 message RenderTask {
-    optional string deprecated_scene_name = 1;
-
     // Average number of samples / px.
     // Note that actual # of samples can vary depending
     // on sampling scheme.
@@ -45,11 +43,12 @@ message RenderTask {
     // A camera (and output image) to use for this render.
     optional CameraConfig camera = 3;
 
-    // Output file path. Should be full path.
-    optional string output_path = 4;
-
     // All objects and lights, including materials.
     optional RenderScene scene = 5;
+
+    // Deprecated fields.
+    optional string deprecated_scene_name = 1;
+    optional string deprecated_output_path = 4;
 }
 
 // A camera type, pose, blur, tonemap, output image format, etc.

@@ -104,9 +104,6 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
     parser.add_argument(
         '--output', type=str, default=None,
         help="Output path of RenderTask in .pb.")
-    parser.add_argument(
-        '--render_output', type=str, default=None,
-        help="Deferred output path of rendered image.")
 
     parser.add_argument(
         '--shot', type=str, default=None,
@@ -114,13 +111,7 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
 
     # Parsing and validation.
     args = parser.parse_args()
-    if args.output is not None:
-        if args.render_output is None:
-            print("--render_output is required for --output")
-            sys.exit(1)
-    elif args.shot is not None:
-        pass
-    else:
+    if args.output is None and args.shot is None:
         print("Either --output or --shot is required")
         sys.exit(1)
 
@@ -136,7 +127,6 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
         task = RenderTask()
         load_cornell_scene(task)
         task.sample_per_pixel = sample_per_pixel
-        task.output_path = args.render_output
 
         configure_camera(task.camera, 0, image_size)
         with open(args.output, "wb") as f_task:

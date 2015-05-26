@@ -295,7 +295,7 @@ std::unique_ptr<Camera2> loadCameraFromCameraConfig(const CameraConfig& config) 
 
 // parse RenderTask from given prototxt file,
 // and return (scene, camera, #samples/px)
-std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
+std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int>
         loadRenderTask(const RenderTask& rt) {
     std::unique_ptr<Scene> scene = loadSceneFromRenderTask(rt);
 
@@ -314,7 +314,7 @@ std::tuple<std::unique_ptr<Scene>, std::unique_ptr<Camera2>, int, std::string>
     }
 
     return std::make_tuple(
-        std::move(scene), std::move(camera), sample_per_px, rt.output_path());
+        std::move(scene), std::move(camera), sample_per_px);
 }
 
 RenderTask readRenderTaskFromFile(const std::string& path) {

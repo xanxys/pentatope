@@ -24,12 +24,10 @@ cv::Mat executeRenderTask(const int n_threads, const RenderTask& rtask) {
     auto scene = std::move(std::get<0>(task));
     const auto camera = std::move(std::get<1>(task));
     const auto sample_per_px = std::get<2>(task);
-    const auto output_path = std::get<3>(task);
 
     LOG(INFO) << "Starting task";
     Sampler sampler;
-    return camera->render(*scene, sampler,
-        sample_per_px, n_threads);
+    return camera->render(*scene, sampler, sample_per_px, n_threads);
 }
 
 
@@ -113,6 +111,7 @@ int main(int argc, char** argv) {
     desc.add_options()
         ("help", "show this message")
         ("render", value<std::string>(), "run given RenderTask (either text or binary)")
+        ("output", value<std::string>(), "write output to given path (only works with --render)")
         ("max-threads", value<int>(), "Maximum number of worker threads (default: nproc).");
     variables_map vars;
     store(parse_command_line(argc, argv, desc), vars);
@@ -130,22 +129,23 @@ int main(int argc, char** argv) {
     if(vars.count("help") > 0) {
         std::cout << desc << std::endl;
     } else if(vars.count("render") > 0) {
+        if(vars.count("output") == 0) {
+            std::cout << "--output is required for --render" << std::endl;
+            std::cout << desc << std::endl;
+            return -1;
+        }
         const auto task_path = vars["render"].as<std::string>();
         LOG(INFO) << "Render task path: " << task_path;
         auto task = readRenderTaskFromFile(task_path);
 
-        // TODO: this feels out-of-place, and
-        // having output_path means rewriting (possibly large) chunk of scene
-        // data just for changing output path. Make it configurable from args.
-        // Check output settings.
-        if(!task.has_output_path()) {
-            throw std::runtime_error("output_path not found");
-        }
-        const auto output_path = task.output_path();
+        const auto output_path = vars["output"].as<std::string>();
         const cv::Mat result = executeRenderTask(n_threads, task);
         LOG(INFO) << "Writing render result to " << output_path;
         cv::imwrite(output_path, result);
     } else {
+        if(vars.count("output") > 0) {
+            LOG(WARNING) << "Service mode ignores --output";
+        }
         LOG(INFO) << "Running as an HTTP service, listening on port 80";
         RenderHandler handler(n_threads);
         http_server server(
