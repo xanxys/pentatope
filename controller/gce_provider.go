@@ -16,8 +16,8 @@ type GCEProvider struct {
 	keyJson       []byte
 	instanceNames []string
 
-	instanceNum  int
-	instanceType string
+	corePerMachine int
+	instanceNum    int
 
 	projectId string
 	zone      string
@@ -30,7 +30,7 @@ func NewGCEProvider(keyJson []byte) *GCEProvider {
 	provider.keyJson = keyJson
 
 	provider.instanceNum = 1
-	provider.instanceType = "n1-standard-8"
+	provider.corePerMachine = 16
 	provider.zone = "us-central1-a"
 
 	provider.projectId = "pentatope-955"
@@ -40,7 +40,7 @@ func NewGCEProvider(keyJson []byte) *GCEProvider {
 
 func (provider *GCEProvider) SafeToString() string {
 	return fmt.Sprintf("GCEProvider{%s × %d}",
-		provider.instanceType, provider.instanceNum)
+		provider.getStandardMachineType(), provider.instanceNum)
 }
 
 func (provider *GCEProvider) Prepare() []string {
@@ -68,7 +68,7 @@ func (provider *GCEProvider) Prepare() []string {
 		instance := &compute.Instance{
 			Name:        name,
 			Description: "Exposes renderer as proto/HTTP service.",
-			MachineType: prefix + "/zones/" + provider.zone + "/machineTypes/" + provider.instanceType,
+			MachineType: prefix + "/zones/" + provider.zone + "/machineTypes/" + provider.getStandardMachineType(),
 			Disks: []*compute.AttachedDisk{
 				{
 					AutoDelete: true,
@@ -143,11 +143,25 @@ func (provider *GCEProvider) Discard() {
 }
 
 func (provider *GCEProvider) CalcBill() (string, float64) {
-	const pricePerHourPerInst = 1.856
+	const pricePerHourPerCore = 0.05
 
-	pricePerHour := pricePerHourPerInst * float64(provider.instanceNum)
-	return fmt.Sprintf("GCE instance (%s) * %d",
-		provider.instanceType, provider.instanceNum), pricePerHour
+	duration := 0.5
+
+	price := pricePerHourPerCore * float64(provider.corePerMachine) * float64(provider.instanceNum) * duration
+	return fmt.Sprintf("GCE instance (%s) * %d for %.1f hour",
+		provider.getStandardMachineType(), provider.instanceNum, duration), price
+}
+
+func (provider *GCEProvider) getStandardMachineType() string {
+	accepableCores := []int{1, 2, 4, 8, 16}
+
+	for _, acceptableCore := range accepableCores {
+		if provider.corePerMachine == acceptableCore {
+			return fmt.Sprintf("n1-standard-%d", provider.corePerMachine)
+		}
+	}
+	log.Panicf("Invalid core/machine %d\n", provider.corePerMachine)
+	return "<Invalid>"
 }
 
 func (provider *GCEProvider) getService() *compute.Service {
