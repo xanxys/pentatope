@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"code.google.com/p/gogoprotobuf/proto"
@@ -94,30 +95,80 @@ func doRenderRequest(serverUrl string, request *pentatope.RenderRequest) *pentat
 	return resp
 }
 
+type WorkerCacheController struct {
+	sceneId uint64
+
+	mutex  sync.Mutex
+	cached map[string]bool
+}
+
+func NewCacheController() *WorkerCacheController {
+	return &WorkerCacheController{
+		sceneId: uint64(rand.Int63()),
+	}
+}
+
+func (ctrl *WorkerCacheController) canUseCacheFor(serverUrl string) bool {
+	ctrl.mutex.Lock()
+	defer ctrl.mutex.Unlock()
+
+	return ctrl.cached[serverUrl]
+}
+
+func (ctrl *WorkerCacheController) setCacheState(serverUrl string, canUseCache bool) {
+	ctrl.mutex.Lock()
+	defer ctrl.mutex.Unlock()
+
+	ctrl.cached[serverUrl] = canUseCache
+}
+
 // Return true when shard rendering succeeds.
 func renderShard(
+	cacheCtrl *WorkerCacheController,
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
 	serverUrl string, imageDir string) bool {
 
-	log.Println("Rendering", shard.frameIndex, "in", serverUrl)
-	taskFrame := &pentatope.RenderTask{
-		SamplePerPixel: wholeTask.SamplePerPixel,
-		Scene:          wholeTask.Scene,
-		Camera:         shard.frameConfig,
-	}
+	for {
+		log.Println("Rendering", shard.frameIndex, "in", serverUrl)
+		req := &pentatope.RenderRequest{
+			Task: &pentatope.RenderTask{
+				SamplePerPixel: wholeTask.SamplePerPixel,
+				Scene:          wholeTask.Scene,
+				Camera:         shard.frameConfig,
+			},
+			SceneId: &cacheCtrl.sceneId,
+		}
 
-	resp := doRenderRequest(serverUrl, &pentatope.RenderRequest{
-		Task: taskFrame,
-	})
+		canUseCache := cacheCtrl.canUseCacheFor(serverUrl)
 
-	if *resp.Status != pentatope.RenderResponse_SUCCESS {
-		log.Println("Error in worker", resp.ErrorMessage)
-		return false
+		if canUseCache {
+			log.Printf("Try using cache (id=%d)\n", cacheCtrl.sceneId)
+			req.Task.Scene = nil
+		}
+
+		resp := doRenderRequest(serverUrl, req)
+
+		if *resp.Status == pentatope.RenderResponse_SUCCESS {
+			cacheCtrl.setCacheState(serverUrl, true)
+
+			imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
+			ioutil.WriteFile(imagePath, resp.Output, 0777)
+			log.Println("Shard", shard, "complete")
+			return true
+		} else if *resp.Status == pentatope.RenderResponse_SCENE_UNAVAILABLE {
+			cacheCtrl.setCacheState(serverUrl, false)
+
+			if canUseCache {
+				log.Printf("Cache unavailable despite expectation; disabling cache")
+			} else {
+				log.Println("Worker incorrectly returning SCENE_UNAVAILABLE")
+				return false
+			}
+		} else {
+			log.Println("Error in worker", resp.ErrorMessage)
+			return false
+		}
 	}
-	imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
-	ioutil.WriteFile(imagePath, resp.Output, 0777)
-	log.Println("Shard", shard, "complete")
-	return true
 }
 
 func render(providers []Provider, inputFile string, outputMp4File string) {
@@ -151,6 +202,8 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	cFinishers := make([]chan bool, 0)
 	cDiscardEnded := make(chan bool)
 
+	cacheCtrl := NewCacheController()
+
 	log.Println("Preparing providers in parallel")
 	for _, provider := range providers {
 		go func(provider Provider) {
@@ -170,7 +223,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 					for {
 						select {
 						case shard := <-cTask:
-							cResult <- renderShard(task, shard, serverUrl, imageDir)
+							cResult <- renderShard(cacheCtrl, task, shard, serverUrl, imageDir)
 						case <-cFinisher:
 							log.Println("Shutting down feeder for", serverUrl)
 							cFeederDead <- true
