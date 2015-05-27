@@ -85,7 +85,6 @@ public:
 private:
     void processRequest(const RenderRequest& request, RenderResponse& response) noexcept {
         if(!request.has_task()) {
-            response.set_is_ok(false);
             response.set_status(RenderResponse::RENDERING_ERROR);
             response.set_error_message("Nothing to do");
             return;
@@ -93,7 +92,6 @@ private:
 
         if(!request.task().has_scene() && !request.has_scene_id()) {
             // No way to get scene.
-            response.set_is_ok(false);
             response.set_status(RenderResponse::SCENE_UNAVAILABLE);
             return;
         }
@@ -101,9 +99,7 @@ private:
         // Read/write cache if the request has scene_id.
         RenderTask cached_task(request.task());
         if(request.has_scene_id()) {
-            std::lock_guard<std::mutex> lock(scene_cache_mutex);
             if(!updateTaskAndCache(request.scene_id(), request.task(), cached_task)) {
-                response.set_is_ok(false);
                 response.set_status(RenderResponse::SCENE_UNAVAILABLE);
                 return;
             }
@@ -113,7 +109,6 @@ private:
         std::vector<uint8_t> buffer;
         cv::imencode(".png", result, buffer);
         response.set_output(std::string(buffer.begin(), buffer.end()));
-        response.set_is_ok(true);
         response.set_status(RenderResponse::SUCCESS);
     }
 

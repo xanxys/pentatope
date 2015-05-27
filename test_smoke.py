@@ -127,7 +127,9 @@ class TestPentatopeServer(unittest.TestCase):
         render_response = render_server_pb2.RenderResponse()
         render_response.ParseFromString(http_resp_body)
         # Verify result.
-        self.assertTrue(render_response.is_ok)
+        self.assertEqual(
+            render_server_pb2.RenderResponse.SUCCESS,
+            render_response.status)
         self.assertFalse(render_response.HasField("error_message"))
         self.assertGreater(len(render_response.output), 0)
 

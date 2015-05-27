@@ -72,6 +72,28 @@ type TaskShard struct {
 	frameConfig *pentatope.CameraConfig
 }
 
+// Return response when RPC is successful, otherwise return nil.
+func doRenderRequest(serverUrl string, request *pentatope.RenderRequest) *pentatope.RenderResponse {
+	requestRaw, err := proto.Marshal(request)
+	respHttp, err := http.Post(serverUrl,
+		"application/x-protobuf", bytes.NewReader(requestRaw))
+	if err != nil {
+		log.Println("Error when doing RPC", err)
+		return nil
+	}
+
+	respRaw, err := ioutil.ReadAll(respHttp.Body)
+	respHttp.Body.Close()
+
+	resp := &pentatope.RenderResponse{}
+	err = proto.Unmarshal(respRaw, resp)
+	if err != nil {
+		log.Println("Invalid proto received from worker", err)
+		return nil
+	}
+	return resp
+}
+
 // Return true when shard rendering succeeds.
 func renderShard(
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
@@ -84,29 +106,11 @@ func renderShard(
 		Camera:         shard.frameConfig,
 	}
 
-	request := &pentatope.RenderRequest{
+	resp := doRenderRequest(serverUrl, &pentatope.RenderRequest{
 		Task: taskFrame,
-	}
+	})
 
-	requestRaw, err := proto.Marshal(request)
-	respHttp, err := http.Post(serverUrl,
-		"application/x-protobuf", bytes.NewReader(requestRaw))
-	if err != nil {
-		log.Println("Error when rendering frame",
-			shard.frameIndex, err)
-		return false
-	}
-
-	resp := &pentatope.RenderResponse{}
-	respRaw, err := ioutil.ReadAll(respHttp.Body)
-	respHttp.Body.Close()
-
-	err = proto.Unmarshal(respRaw, resp)
-	if err != nil {
-		log.Println("Invalid proto received from worker", err)
-		return false
-	}
-	if !*resp.IsOk {
+	if *resp.Status != pentatope.RenderResponse_SUCCESS {
 		log.Println("Error in worker", resp.ErrorMessage)
 		return false
 	}

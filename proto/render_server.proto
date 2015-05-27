@@ -31,11 +31,6 @@ message RenderResponse {
 	}
 	optional Status status = 4;
 
-	// DEPREACATED: Use status instead
-	// If is_ok, output is available.
-	// Otherwise, Human-readable error_message might be present.
-	required bool is_ok = 1;
-
 	// Optional human-readable error message.
 	// Don't fill this field when is_ok==true.
 	// Also don't use this field to add machine-readable status code.
@@ -43,4 +38,7 @@ message RenderResponse {
 
 	// Output blob. Typically image.
 	optional bytes output = 3;
+
+	// Deprecated fields.
+	optional bool deprecated_is_ok = 1;
 }
