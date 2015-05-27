@@ -4,12 +4,34 @@ import "render_task.proto";
 
 message RenderRequest {
 	// Task to be run on the server.
-	// task.output_path will be ignored,
-	// (i.e. server won't touch filesystem at all)
-	optional RenderTask task = 1;
+	// task.scene will be ignored if (scene_id is specified and scene is cached).
+	required RenderTask task = 1;
+
+	// If set && the scene is cached, override task.scene with the cache.
+	// If set && not cached, cache task.scene and use it.
+	// If not set, use task.scene and don't cache.
+	//
+	// Note that the server can chose when to expire the scene.
+	//
+	// It is client's responsibility to make sure task.scene is the same for same scene_id.
+	// When unsure, unset scene_id.
+	optional uint64 scene_id = 2;
 }
 
 message RenderResponse {
+	enum Status {
+		// Successful. output is available.
+		SUCCESS = 0;
+
+		// Happens when (task.scene is not set and scene_id is not cached).
+		SCENE_UNAVAILABLE = 1;
+
+		// Some rendering related error occurred.
+		RENDERING_ERROR = 2;
+	}
+	optional Status status = 4;
+
+	// DEPREACATED: Use status instead
 	// If is_ok, output is available.
 	// Otherwise, Human-readable error_message might be present.
 	required bool is_ok = 1;
