@@ -63,16 +63,7 @@ public:
         LOG(INFO) << "Processing RenderRequest";
         RenderResponse render_response;
 
-        if(!render_request.has_task()) {
-            render_response.set_is_ok(false);
-            render_response.set_error_message("Nothing to do");
-        } else {
-            const cv::Mat result = executeRenderTask(n_threads, render_request.task());
-            std::vector<uint8_t> buffer;
-            cv::imencode(".png", result, buffer);
-            render_response.set_output(std::string(buffer.begin(), buffer.end()));
-            render_response.set_is_ok(true);
-        }
+        processRequest(render_request, render_response);
 
         std::string response_body;
         if(!render_response.SerializeToString(&response_body)) {
@@ -89,7 +80,23 @@ public:
         LOG(WARNING) << "server: " << message;
     }
 private:
-    int n_threads;
+    void processRequest(const RenderRequest& request, RenderResponse& response) noexcept {
+        if(!request.has_task()) {
+            response.set_is_ok(false);
+            response.set_status(RenderResponse::RENDERING_ERROR);
+            response.set_error_message("Nothing to do");
+            return;
+        }
+
+        const cv::Mat result = executeRenderTask(n_threads, request.task());
+        std::vector<uint8_t> buffer;
+        cv::imencode(".png", result, buffer);
+        response.set_output(std::string(buffer.begin(), buffer.end()));
+        response.set_is_ok(true);
+        response.set_status(RenderResponse::SUCCESS);
+    }
+private:
+    const int n_threads;
 };
 
 
