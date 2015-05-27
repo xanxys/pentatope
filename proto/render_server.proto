@@ -23,7 +23,7 @@ message RenderResponse {
 		// Successful. output is available.
 		SUCCESS = 0;
 
-		// Happens when (task.scene is not set and scene_id is not cached).
+		// Happens when (task.scene is not set and (scene_id is not cached or not supplied)).
 		SCENE_UNAVAILABLE = 1;
 
 		// Some rendering related error occurred.

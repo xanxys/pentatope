@@ -1,5 +1,7 @@
 #include <iostream>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 
@@ -13,6 +15,7 @@
 #include <camera.h>
 #include <loader.h>
 #include <proto/render_server.pb.h>
+#include <proto/render_task.pb.h>
 #include <sampling.h>
 #include <scene.h>
 
@@ -88,14 +91,54 @@ private:
             return;
         }
 
-        const cv::Mat result = executeRenderTask(n_threads, request.task());
+        if(!request.task().has_scene() && !request.has_scene_id()) {
+            // No way to get scene.
+            response.set_is_ok(false);
+            response.set_status(RenderResponse::SCENE_UNAVAILABLE);
+            return;
+        }
+
+        // Read/write cache if the request has scene_id.
+        RenderTask cached_task(request.task());
+        if(request.has_scene_id()) {
+            std::lock_guard<std::mutex> lock(scene_cache_mutex);
+            if(!updateTaskAndCache(request.scene_id(), request.task(), cached_task)) {
+                response.set_is_ok(false);
+                response.set_status(RenderResponse::SCENE_UNAVAILABLE);
+                return;
+            }
+        }
+
+        const cv::Mat result = executeRenderTask(n_threads, cached_task);
         std::vector<uint8_t> buffer;
         cv::imencode(".png", result, buffer);
         response.set_output(std::string(buffer.begin(), buffer.end()));
         response.set_is_ok(true);
         response.set_status(RenderResponse::SUCCESS);
     }
+
+    bool updateTaskAndCache(uint64_t scene_id, const RenderTask& in_task, RenderTask& cached_task) {
+        std::lock_guard<std::mutex> lock(scene_cache_mutex);
+
+        if(in_task.has_scene()) {
+            // Update cache.
+            scene_cache[scene_id] = in_task.scene();
+            return true;
+        }
+        // Try getting from cache.
+        const auto maybe_scene = scene_cache.find(scene_id);
+        if(maybe_scene != scene_cache.end()) {
+            cached_task.mutable_scene()->CopyFrom(maybe_scene->second);
+            return true;
+        }
+        // Failed to get cache, and scene is not spcified.
+        return false;
+    }
 private:
+    std::mutex scene_cache_mutex;
+    // TODO: consider saving loaded Scene to avoid errors and save computation.
+    std::map<uint64_t, RenderScene> scene_cache;
+
     const int n_threads;
 };
 
