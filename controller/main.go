@@ -105,6 +105,7 @@ type WorkerCacheController struct {
 func NewCacheController() *WorkerCacheController {
 	return &WorkerCacheController{
 		sceneId: uint64(rand.Int63()),
+		cached:  make(map[string]bool),
 	}
 }
 
