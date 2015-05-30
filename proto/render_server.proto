@@ -29,7 +29,7 @@ message RenderResponse {
 		// Some rendering related error occurred.
 		RENDERING_ERROR = 2;
 	}
-	optional Status status = 4;
+	required Status status = 4;
 
 	// Optional human-readable error message.
 	// Don't fill this field when is_ok==true.
