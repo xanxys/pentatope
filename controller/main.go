@@ -372,7 +372,7 @@ func main() {
 	task := loadRenderMovieTask(*input)
 	difficulty := estimateTaskDifficulty(task)
 	coreNeeded := difficulty / targetHour
-	log.Printf("Estimated: %.1f coresn needed for %.1f hour target\n", coreNeeded, targetHour)
+	log.Printf("Estimated: %.1f cores necessary for %.1f hour target\n", coreNeeded, targetHour)
 
 	providers := createProviders(debugFe, localFlag, awsFlag, gceFlag)
 	if len(providers) == 0 {
