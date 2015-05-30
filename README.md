@@ -35,8 +35,8 @@ if you are to use distributed rendering accessible via `--aws` flag in
 Although `./build.sh` will checkout latest commit (inside a container) and
 build images based on it, it's too time-consuming for rapid iterations.
 
-You can use `xanxys/pentatope-dev` image and mounting local directory inside
-a container. (e.g. `sudo docker run -t -i --rm -v $(pwd):/root/local -p 8080:80 xanxys/pentatope-dev bash`)
+You can use `docker.io/xanxys/pentatope-dev` image and mounting local directory inside
+a container. (e.g. `sudo docker run -t -i --rm -v $(pwd):/root/local -p 8080:80 docker.io/xanxys/pentatope-dev bash`)
 
 ## Credentials
 
