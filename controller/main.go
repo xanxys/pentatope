@@ -127,7 +127,7 @@ func (ctrl *WorkerCacheController) setCacheState(serverUrl string, canUseCache b
 func renderShard(
 	cacheCtrl *WorkerCacheController,
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
-	serverUrl string, imageDir string) bool {
+	serverUrl string, encoder *MovieEncoder) bool {
 
 	for {
 		log.Println("Rendering", shard.frameIndex, "in", serverUrl)
@@ -152,8 +152,7 @@ func renderShard(
 		if *resp.Status == pentatope.RenderResponse_SUCCESS {
 			cacheCtrl.setCacheState(serverUrl, true)
 
-			imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", shard.frameIndex))
-			ioutil.WriteFile(imagePath, resp.Output, 0777)
+			encoder.addFrame(shard.frameIndex, resp.Output)
 			log.Println("Shard", shard, "complete")
 			return true
 		} else if *resp.Status == pentatope.RenderResponse_SCENE_UNAVAILABLE {
@@ -172,31 +171,73 @@ func renderShard(
 	}
 }
 
-func render(providers []Provider, inputFile string, outputMp4File string) {
+type MovieEncoder struct {
+	framerate float32
+	imageDir  string
+}
+
+func NewMovieEncoder(framerate float32) *MovieEncoder {
+	// Prepare output directory.
+	imageDir, err := ioutil.TempDir("", "penc")
+	if err != nil {
+		log.Panicln("Failed to create a temporary image directory", err)
+	}
+	return &MovieEncoder{
+		framerate: framerate,
+		imageDir:  imageDir,
+	}
+}
+
+func (encoder *MovieEncoder) addFrame(frameIndex int, imageBlob []byte) {
+	imagePath := path.Join(encoder.imageDir, fmt.Sprintf("frame-%06d.png", frameIndex))
+	ioutil.WriteFile(imagePath, imageBlob, 0777)
+}
+
+func (encoder *MovieEncoder) encodeToMp4File(outputMp4File string) {
+	cmd := exec.Command(
+		"ffmpeg",
+		"-y", // Allow overwrite
+		"-framerate", fmt.Sprintf("%f", encoder.framerate),
+		"-i", path.Join(encoder.imageDir, "frame-%06d.png"),
+		"-pix_fmt", "yuv444p",
+		"-crf", "18", // visually lossless
+		"-c:v", "libx264",
+		"-loglevel", "warning",
+		"-r", fmt.Sprintf("%f", encoder.framerate),
+		outputMp4File)
+	err := cmd.Run()
+	if err != nil {
+		log.Println("Encoding failed with", err)
+	}
+}
+
+func (encoder *MovieEncoder) clean() {
+	os.RemoveAll(encoder.imageDir)
+}
+
+func loadRenderMovieTask(inputFile string) *pentatope.RenderMovieTask {
 	// Generate RenderRequest from inputFile.
 	taskRaw, err := ioutil.ReadFile(inputFile)
 	if err != nil {
-		log.Println("Aborting because", err)
-		return
+		log.Panicln("Aborting because", err)
 	}
 	task := &pentatope.RenderMovieTask{}
 	err = proto.Unmarshal(taskRaw, task)
 	if err != nil {
-		log.Println("Input file is invalid as RenverMovieTask")
-		return
+		log.Panicln("Input file is invalid as RenverMovieTask")
 	}
+	return task
+}
+
+func render(providers []Provider, inputFile string, outputMp4File string) {
+	task := loadRenderMovieTask(inputFile)
 	if len(task.Frames) == 0 {
 		log.Println("One or more frames required")
 		return
 	}
 
-	// Prepare output directory.
-	imageDir, err := ioutil.TempDir("", "penc")
-	if err != nil {
-		log.Println("Failed to create a temporary image directory", err)
-		return
-	}
-	defer os.RemoveAll(imageDir)
+	encoder := NewMovieEncoder(*task.Framerate)
+	defer encoder.clean()
 
 	cTask := make(chan *TaskShard, 1)
 	cResult := make(chan bool, len(task.Frames))
@@ -224,7 +265,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 					for {
 						select {
 						case shard := <-cTask:
-							cResult <- renderShard(cacheCtrl, task, shard, serverUrl, imageDir)
+							cResult <- renderShard(cacheCtrl, task, shard, serverUrl, encoder)
 						case <-cFinisher:
 							log.Println("Shutting down feeder for", serverUrl)
 							cFeederDead <- true
@@ -259,21 +300,7 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 
 	// Encode
 	log.Println("Converting to mp4", outputMp4File)
-	cmd := exec.Command(
-		"ffmpeg",
-		"-y", // Allow overwrite
-		"-framerate", fmt.Sprintf("%f", *task.Framerate),
-		"-i", path.Join(imageDir, "frame-%06d.png"),
-		"-pix_fmt", "yuv444p",
-		"-crf", "18", // visually lossless
-		"-c:v", "libx264",
-		"-loglevel", "warning",
-		"-r", fmt.Sprintf("%f", *task.Framerate),
-		outputMp4File)
-	err = cmd.Run()
-	if err != nil {
-		log.Println("Encoding failed with", err)
-	}
+	encoder.encodeToMp4File(outputMp4File)
 	log.Println("Encoding finished")
 
 	log.Println("Waiting discard to finish")
