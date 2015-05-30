@@ -229,8 +229,7 @@ func loadRenderMovieTask(inputFile string) *pentatope.RenderMovieTask {
 	return task
 }
 
-func render(providers []Provider, inputFile string, outputMp4File string) {
-	task := loadRenderMovieTask(inputFile)
+func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File string) {
 	if len(task.Frames) == 0 {
 		log.Println("One or more frames required")
 		return
@@ -309,6 +308,15 @@ func render(providers []Provider, inputFile string, outputMp4File string) {
 	}
 }
 
+// Return core * hout of the given rendering task.
+func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float32 {
+	const samplePerCoreSec = 15000
+	samples := uint64(len(task.Frames)) * uint64(*task.Width) * uint64(*task.Height) * uint64(*task.SamplePerPixel)
+	coreHour := float32(samples) / samplePerCoreSec / 3600
+	log.Printf("Difficulty estimator #samples=%d -> %.2f core * hour", samples, coreHour)
+	return coreHour
+}
+
 // Try to instantiate all specified providers. Note that result could be empty.
 func createProviders(debugFe *DebugFrontend,
 	localFlag *bool, awsFlag *string, gceFlag *string) []Provider {
@@ -359,6 +367,13 @@ func main() {
 	outputMp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
 	flag.Parse()
 
+	const targetHour = 10.0 / 60
+
+	task := loadRenderMovieTask(*input)
+	difficulty := estimateTaskDifficulty(task)
+	coreNeeded := difficulty / targetHour
+	log.Printf("Estimated: %.1f coresn needed for %.1f hour target\n", coreNeeded, targetHour)
+
 	providers := createProviders(debugFe, localFlag, awsFlag, gceFlag)
 	if len(providers) == 0 {
 		log.Println("You need at least one usable provider.")
@@ -369,5 +384,5 @@ func main() {
 		os.Exit(0)
 	}
 
-	render(providers, *input, *outputMp4)
+	render(providers, task, *outputMp4)
 }
