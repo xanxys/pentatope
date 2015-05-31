@@ -121,8 +121,10 @@ func (provider *GCEProvider) Prepare() []string {
 			},
 		}
 
-		op, err := service.Instances.Insert(provider.projectId, provider.zone, instance).Do()
-		log.Printf("Got compute.Operation, err: %#v, %v", op, err)
+		op, _ := service.Instances.Insert(provider.projectId, provider.zone, instance).Do()
+		if op.Error != nil {
+			log.Printf("Error while booting: %#v", op.Error)
+		}
 	}
 
 	// Wait until the instances to become running & responding
