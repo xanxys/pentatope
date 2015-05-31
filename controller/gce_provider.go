@@ -57,7 +57,7 @@ func (provider *GCEProvider) SafeToString() string {
 		provider.getStandardMachineType(), provider.instanceNum)
 }
 
-func (provider *GCEProvider) Prepare() []string {
+func (provider *GCEProvider) Prepare() chan string {
 	service := provider.getService()
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + provider.projectId
@@ -131,7 +131,7 @@ func (provider *GCEProvider) Prepare() []string {
 	}
 
 	// Wait until the instances to become running & responding
-	urls := make([]string, 0)
+	urls := make(chan string, provider.instanceNum)
 	for _, name := range provider.instanceNames {
 		for {
 			log.Printf("Pinging status for %s\n", name)
@@ -140,14 +140,16 @@ func (provider *GCEProvider) Prepare() []string {
 				ip := resp.NetworkInterfaces[0].AccessConfigs[0].NatIP
 				url := fmt.Sprintf("http://%s:8000", ip)
 				BlockUntilAvailable(url, 5*time.Second)
-				urls = append(urls, url)
+				urls <- url
 				break
 			}
 			time.Sleep(5 * time.Second)
 		}
 	}
-
 	return urls
+}
+
+func (provider *GCEProvider) NotifyUseless(server string) {
 }
 
 func (provider *GCEProvider) Discard() {

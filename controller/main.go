@@ -24,7 +24,7 @@ import pentatope "./pentatope"
 
 /*
 Provider is an abstract entity that:
-* runs pentatope intance (in docker) somewhere
+* runs pentatope instance (in docker) somewhere
 * makes the instance available via HTTP RPC
 * supports clean construction/deconstruction operation
 * estimates time and money costs involved
@@ -44,20 +44,23 @@ type Provider interface {
 	// like secret keys.
 	SafeToString() string
 
-	Prepare() []string
+	// Return a channel where usable urls appear.
+	Prepare() chan string
+
+	// Notify useless server that should be killed.
+	NotifyUseless(string)
+
 	Discard()
 	CalcBill() (string, float64)
 }
 
 // Ask user whether given billing plan is ok or not in CUI.
-func askBillingPlan(providers []Provider) bool {
+func askBillingPlan(provider Provider) bool {
 	fmt.Println("==================== Estimated Price ====================")
 	total_price := 0.0
-	for _, provider := range providers {
-		name, price := provider.CalcBill()
-		fmt.Printf("%s  %f USD\n", name, price)
-		total_price += price
-	}
+	name, price := provider.CalcBill()
+	fmt.Printf("%s  %f USD\n", name, price)
+	total_price += price
 	fmt.Println("---------------------------------------------------------")
 	fmt.Printf("%f USD\n", total_price)
 
@@ -230,94 +233,63 @@ func loadRenderMovieTask(inputFile string) *pentatope.RenderMovieTask {
 }
 
 type WorkerPool struct {
-	cTask         chan *TaskShard
-	cResult       chan bool
-	cFinishers    []chan bool
-	cDiscardEnded chan bool
-	encoder       *MovieEncoder
-	providers     []Provider
-	nFrames       int
+	cTask  chan *TaskShard
+	nTasks int
+
+	cResult  chan bool
+	encoder  *MovieEncoder
+	provider Provider
 }
 
-func NewWorkerPool(providers []Provider, task *pentatope.RenderMovieTask, encoder *MovieEncoder) *WorkerPool {
+func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *MovieEncoder) *WorkerPool {
 	cTask := make(chan *TaskShard, 1)
 	cResult := make(chan bool, len(task.Frames))
-	cFinishers := make([]chan bool, 0)
-	cDiscardEnded := make(chan bool)
 
 	cacheCtrl := NewCacheController()
 
-	log.Println("Preparing providers in parallel")
-	for _, provider := range providers {
-		go func(provider Provider) {
-			log.Println("Preparing provider", provider.SafeToString())
-			urls := provider.Prepare()
-			defer func() {
-				provider.Discard()
-				cDiscardEnded <- true
-			}()
-			log.Println("provider urls:", urls)
-
-			cFeederDead := make(chan bool)
-			for _, url := range urls {
-				cFinisher := make(chan bool)
-				cFinishers = append(cFinishers, cFinisher)
-				go func(serverUrl string) {
-					for {
-						select {
-						case shard := <-cTask:
-							cResult <- renderShard(cacheCtrl, task, shard, serverUrl, encoder)
-						case <-cFinisher:
-							log.Println("Shutting down feeder for", serverUrl)
-							cFeederDead <- true
-							return
-						}
-					}
-				}(url)
-			}
-
-			// Wait all feeder to die. (because we can't allow defer
-			// to run until they finish)
-			for range urls {
-				<-cFeederDead
-			}
-			log.Println("Provider", provider.SafeToString(), "ended its role")
-		}(provider)
-	}
+	log.Println("Preparing provider", provider.SafeToString())
+	cUrls := provider.Prepare()
+	go func() {
+		for {
+			url := <-cUrls
+			log.Printf("Got new server: %s\n", url)
+			go func(serverUrl string) {
+				for {
+					shard := <-cTask
+					cResult <- renderShard(cacheCtrl, task, shard, serverUrl, encoder)
+				}
+			}(url)
+		}
+	}()
 
 	return &WorkerPool{
-		cTask:         cTask,
-		cResult:       cResult,
-		cFinishers:    cFinishers,
-		cDiscardEnded: cDiscardEnded,
-		providers:     providers,
-		encoder:       encoder,
-		nFrames:       len(task.Frames),
+		cTask:    cTask,
+		cResult:  cResult,
+		provider: provider,
+		encoder:  encoder,
+		nTasks:   0,
 	}
 }
 
+// Request to process a new task. Can block if there's
+// too many unprocessed task.
 func (pool *WorkerPool) AddShard(shard *TaskShard) {
+	pool.nTasks++
 	pool.cTask <- shard
 }
 
 func (pool *WorkerPool) WaitFinish() {
-	for ix := 0; ix < pool.nFrames; ix++ {
+	for ix := 0; ix < pool.nTasks; ix++ {
 		<-pool.cResult
 	}
-
-	log.Println("Sending terminate requests")
-	for _, cFinisher := range pool.cFinishers {
-		cFinisher <- true
-	}
+	log.Println("Sending terminate request")
+	pool.provider.Discard()
 }
 
 func (pool *WorkerPool) WaitDiscard() {
-	for range pool.providers {
-		<-pool.cDiscardEnded
-	}
 }
 
-func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File string) {
+func render(provider Provider, task *pentatope.RenderMovieTask, outputMp4File string) {
 	if len(task.Frames) == 0 {
 		log.Println("One or more frames required")
 		return
@@ -326,7 +298,7 @@ func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File
 	encoder := NewMovieEncoder(*task.Framerate)
 	defer encoder.clean()
 
-	pool := NewWorkerPool(providers, task, encoder)
+	pool := NewWorkerPool(provider, task, encoder)
 
 	log.Println("Feeding tasks")
 	for ix, frameConfig := range task.Frames {
@@ -354,41 +326,53 @@ func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float64 {
 	return coreHour
 }
 
-// Try to instantiate all specified providers. Note that result could be empty.
-func createProviders(
+// Try to specified provider. Note that result could be empty.
+func createprovider(
 	debugFe *DebugFrontend,
 	coreNeeded float64, duration float64,
-	localFlag *bool, awsFlag *string, gceFlag *string) []Provider {
+	localFlag *bool, awsFlag *string, gceFlag *string) Provider {
 
-	var providers []Provider
+	nProvider := 0
 	if *localFlag {
-		providers = append(providers, new(LocalProvider))
+		nProvider++
 	}
 	if *awsFlag != "" {
-		awsJson, err := ioutil.ReadFile(*awsFlag)
-		if err != nil {
-			log.Println("Ignoring AWS because credential file was not found.")
-		} else {
-			var credential AWSCredential
-			json.Unmarshal(awsJson, &credential)
-			if credential.AccessKey == "" || credential.SecretAccessKey == "" {
-				fmt.Printf("Couldn't read AccessKey or SecretAccessKey from %s\n", *awsFlag)
-			} else {
-				ec2Prov := NewEC2Provider(credential)
-				debugFe.RegisterModule(ec2Prov)
-				providers = append(providers, ec2Prov)
-			}
-		}
+		nProvider++
 	}
 	if *gceFlag != "" {
+		nProvider++
+	}
+	if nProvider != 1 {
+		log.Println("You must one and only one provider.")
+		return nil
+	}
+
+	if *localFlag {
+		return new(LocalProvider)
+	} else if *awsFlag != "" {
+		awsJson, err := ioutil.ReadFile(*awsFlag)
+		if err != nil {
+			log.Println("Failed to create AWS provider because credential file was not found.")
+			return nil
+		}
+		var credential AWSCredential
+		json.Unmarshal(awsJson, &credential)
+		if credential.AccessKey == "" || credential.SecretAccessKey == "" {
+			fmt.Printf("Couldn't read AccessKey or SecretAccessKey from %s\n", *awsFlag)
+			return nil
+		}
+		ec2Prov := NewEC2Provider(credential)
+		debugFe.RegisterModule(ec2Prov)
+		return ec2Prov
+	} else if *gceFlag != "" {
 		gceKey, err := ioutil.ReadFile(*gceFlag)
 		if err != nil {
 			log.Println("Ignoring GCE because credential key couldn't be read.")
-		} else {
-			providers = append(providers, NewGCEProvider(gceKey, coreNeeded, duration))
+			return nil
 		}
+		return NewGCEProvider(gceKey, coreNeeded, duration)
 	}
-	return providers
+	return nil
 }
 
 func main() {
@@ -397,7 +381,7 @@ func main() {
 	debugFe := RunDebuggerFrontend()
 	log.Printf("Debugger interface: http://localhost:%d/debug\n", debugFe.Port)
 
-	// Resource providers.
+	// Resource provider.
 	localFlag := flag.Bool("local", false, "Use this machine.")
 	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
 	gceFlag := flag.String("gce", "", "Use Google Compute Engine with a text file containing API key.")
@@ -413,15 +397,15 @@ func main() {
 	coreNeeded := difficulty / targetHour
 	log.Printf("Estimated: %.1f cores necessary for %.1f hour target\n", coreNeeded, targetHour)
 
-	providers := createProviders(debugFe, coreNeeded, targetHour, localFlag, awsFlag, gceFlag)
-	if len(providers) == 0 {
-		log.Println("You need at least one usable provider.")
+	provider := createprovider(debugFe, coreNeeded, targetHour, localFlag, awsFlag, gceFlag)
+	if provider == nil {
+		log.Println("You need at one usable provider.")
 		os.Exit(1)
 	}
 
-	if !askBillingPlan(providers) {
+	if !askBillingPlan(provider) {
 		os.Exit(0)
 	}
 
-	render(providers, task, *outputMp4)
+	render(provider, task, *outputMp4)
 }

@@ -18,7 +18,7 @@ func (provider *LocalProvider) SafeToString() string {
 	return fmt.Sprintf("LocalProvider{%s}", provider.containerId)
 }
 
-func (provider *LocalProvider) Prepare() []string {
+func (provider *LocalProvider) Prepare() chan string {
 	container_name := fmt.Sprintf("pentatope_local_worker_%d", rand.Intn(1000))
 	port := 20000 + rand.Intn(10000)
 	cmd := exec.Command("sudo", "docker", "run",
@@ -35,7 +35,13 @@ func (provider *LocalProvider) Prepare() []string {
 	log.Printf("LocalProvider docker container id: %s", provider.containerId)
 	url := fmt.Sprintf("http://localhost:%d/", port)
 	BlockUntilAvailable(url, time.Second)
-	return []string{url}
+
+	urls := make(chan string, 1)
+	urls <- url
+	return urls
+}
+
+func (provider *LocalProvider) NotifyUseless(server string) {
 }
 
 func (provider *LocalProvider) Discard() {

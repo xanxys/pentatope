@@ -92,12 +92,15 @@ func (provider *EC2Provider) RenderDebugHTML(w io.Writer) {
 		`, dataTextEsc)
 }
 
+func (provider *EC2Provider) NotifyUseless(server string) {
+}
+
 func (provider *EC2Provider) SafeToString() string {
 	return fmt.Sprintf("EC2Provider{%s × %d}",
 		provider.instanceType, provider.instanceNum)
 }
 
-func (provider *EC2Provider) Prepare() []string {
+func (provider *EC2Provider) Prepare() chan string {
 	conn := ec2.New(&aws.Config{
 		Region:      "us-west-1",
 		Credentials: provider.credential,
@@ -131,7 +134,7 @@ func (provider *EC2Provider) Prepare() []string {
 	})
 	if err != nil {
 		fmt.Println("EC2 launch error", err)
-		return []string{}
+		return make(chan string, 0)
 	}
 	for _, instance := range resp.Instances {
 		provider.instanceIds = append(
@@ -164,7 +167,7 @@ func (provider *EC2Provider) Prepare() []string {
 		time.Sleep(5 * time.Second)
 	}
 
-	urls := make([]string, 0)
+	urls := make(chan string, len(provider.instanceIds))
 	for _, instanceId := range provider.instanceIds {
 		respDI, _ := conn.DescribeInstances(&ec2.DescribeInstancesInput{
 			InstanceIDs: []*string{instanceId},
@@ -177,7 +180,7 @@ func (provider *EC2Provider) Prepare() []string {
 		url := fmt.Sprintf("http://%s:8000", *ipAddress)
 		BlockUntilAvailable(url, 5*time.Second)
 
-		urls = append(urls, url)
+		urls <- url
 	}
 	return urls
 }
