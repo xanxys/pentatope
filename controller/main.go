@@ -309,10 +309,10 @@ func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File
 }
 
 // Return core * hout of the given rendering task.
-func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float32 {
+func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float64 {
 	const samplePerCoreSec = 15000
 	samples := uint64(len(task.Frames)) * uint64(*task.Width) * uint64(*task.Height) * uint64(*task.SamplePerPixel)
-	coreHour := float32(samples) / samplePerCoreSec / 3600
+	coreHour := float64(samples) / samplePerCoreSec / 3600
 	log.Printf("Difficulty estimator #samples=%d -> %.2f core * hour", samples, coreHour)
 	return coreHour
 }
@@ -320,7 +320,7 @@ func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float32 {
 // Try to instantiate all specified providers. Note that result could be empty.
 func createProviders(
 	debugFe *DebugFrontend,
-	coreNeeded float32,
+	coreNeeded float64, duration float64,
 	localFlag *bool, awsFlag *string, gceFlag *string) []Provider {
 
 	var providers []Provider
@@ -348,7 +348,7 @@ func createProviders(
 		if err != nil {
 			log.Println("Ignoring GCE because credential key couldn't be read.")
 		} else {
-			providers = append(providers, NewGCEProvider(gceKey, coreNeeded))
+			providers = append(providers, NewGCEProvider(gceKey, coreNeeded, duration))
 		}
 	}
 	return providers
@@ -376,7 +376,7 @@ func main() {
 	coreNeeded := difficulty / targetHour
 	log.Printf("Estimated: %.1f cores necessary for %.1f hour target\n", coreNeeded, targetHour)
 
-	providers := createProviders(debugFe, coreNeeded, localFlag, awsFlag, gceFlag)
+	providers := createProviders(debugFe, coreNeeded, targetHour, localFlag, awsFlag, gceFlag)
 	if len(providers) == 0 {
 		log.Println("You need at least one usable provider.")
 		os.Exit(1)

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ type GCEProvider struct {
 
 	corePerMachine int
 	instanceNum    int
+	estDuration    float64
 
 	projectId string
 	zone      string
@@ -25,12 +27,13 @@ type GCEProvider struct {
 	runId string
 }
 
-func NewGCEProvider(keyJson []byte, coreNeeded float32) *GCEProvider {
+func NewGCEProvider(keyJson []byte, coreNeeded float64, duration float64) *GCEProvider {
 	provider := new(GCEProvider)
 	provider.keyJson = keyJson
 
 	provider.instanceNum, provider.corePerMachine = satisfyCoreNeed(int(coreNeeded))
 	provider.zone = "us-central1-b"
+	provider.estDuration = duration
 
 	provider.projectId = "pentatope-955"
 	provider.runId = fmt.Sprintf("%04d", rand.Int()%10000)
@@ -158,11 +161,10 @@ func (provider *GCEProvider) Discard() {
 func (provider *GCEProvider) CalcBill() (string, float64) {
 	const pricePerHourPerCore = 0.05
 
-	duration := 0.5
-
-	price := pricePerHourPerCore * float64(provider.corePerMachine) * float64(provider.instanceNum) * duration
+	billingDuration := math.Max(1.0/6.0, provider.estDuration)
+	price := pricePerHourPerCore * float64(provider.corePerMachine) * float64(provider.instanceNum) * billingDuration
 	return fmt.Sprintf("GCE instance (%s) * %d for %.1f hour",
-		provider.getStandardMachineType(), provider.instanceNum, duration), price
+		provider.getStandardMachineType(), provider.instanceNum, billingDuration), price
 }
 
 func (provider *GCEProvider) getStandardMachineType() string {
