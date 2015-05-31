@@ -25,17 +25,28 @@ type GCEProvider struct {
 	runId string
 }
 
-func NewGCEProvider(keyJson []byte) *GCEProvider {
+func NewGCEProvider(keyJson []byte, coreNeeded float32) *GCEProvider {
 	provider := new(GCEProvider)
 	provider.keyJson = keyJson
 
-	provider.instanceNum = 1
-	provider.corePerMachine = 16
+	provider.instanceNum, provider.corePerMachine = satisfyCoreNeed(int(coreNeeded))
 	provider.zone = "us-central1-a"
 
 	provider.projectId = "pentatope-955"
 	provider.runId = fmt.Sprintf("%04d", rand.Int()%10000)
 	return provider
+}
+
+// Return (#machine, #core)
+func satisfyCoreNeed(coreNeeded int) (int, int) {
+	coreChoices := []int{1, 2, 4, 8, 16}
+	for _, numCore := range coreChoices {
+		if coreNeeded < numCore {
+			return 1, numCore
+		}
+	}
+	maxNumCore := coreChoices[len(coreChoices)-1]
+	return int(coreNeeded / maxNumCore), maxNumCore
 }
 
 func (provider *GCEProvider) SafeToString() string {
@@ -75,7 +86,7 @@ func (provider *GCEProvider) Prepare() []string {
 					Boot:       true,
 					Type:       "PERSISTENT",
 					InitializeParams: &compute.AttachedDiskInitializeParams{
-						DiskName:    "my-root-pd",
+						DiskName:    "root-pd-" + name,
 						SourceImage: imageURL,
 					},
 				},
