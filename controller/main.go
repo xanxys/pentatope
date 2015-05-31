@@ -76,13 +76,14 @@ type TaskShard struct {
 }
 
 // Return response when RPC is successful, otherwise return nil.
-func doRenderRequest(serverUrl string, request *pentatope.RenderRequest) *pentatope.RenderResponse {
+// When the result is nil, it is guranteed that error is non-nil.
+func doRenderRequest(serverUrl string, request *pentatope.RenderRequest) (*pentatope.RenderResponse, error) {
 	requestRaw, err := proto.Marshal(request)
 	respHttp, err := http.Post(serverUrl,
 		"application/x-protobuf", bytes.NewReader(requestRaw))
 	if err != nil {
 		log.Println("Error when doing RPC", err)
-		return nil
+		return nil, err
 	}
 
 	respRaw, err := ioutil.ReadAll(respHttp.Body)
@@ -92,9 +93,9 @@ func doRenderRequest(serverUrl string, request *pentatope.RenderRequest) *pentat
 	err = proto.Unmarshal(respRaw, resp)
 	if err != nil {
 		log.Println("Invalid proto received from worker", err)
-		return nil
+		return nil, err
 	}
-	return resp
+	return resp, nil
 }
 
 type WorkerCacheController struct {
@@ -125,7 +126,7 @@ func (ctrl *WorkerCacheController) setCacheState(serverUrl string, canUseCache b
 	ctrl.cached[serverUrl] = canUseCache
 }
 
-// Return nil when shard rendering succeeds.
+// Return nil when shard rendering failed.
 func renderShard(
 	cacheCtrl *WorkerCacheController,
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
@@ -149,7 +150,10 @@ func renderShard(
 			req.Task.Scene = nil
 		}
 
-		resp := doRenderRequest(serverUrl, req)
+		resp, err := doRenderRequest(serverUrl, req)
+		if err != nil {
+			return err
+		}
 
 		if *resp.Status == pentatope.RenderResponse_SUCCESS {
 			cacheCtrl.setCacheState(serverUrl, true)
@@ -277,7 +281,6 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 					}()
 				} else {
 					// All servers are busy now.
-					log.Printf("All servers are busy. Retrying soon.")
 					time.Sleep(time.Second)
 					go func() {
 						cTask <- shard
