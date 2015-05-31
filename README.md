@@ -12,7 +12,7 @@ heavy influence of [pbrt](http://www.pbrt.org/).
 
 
 ## Project Structure
-* `worker/`: C++ server code for worker node (runs in docker, either on AWS or on your local PC)
+* `worker/`: C++ server code for worker node (runs in docker, either on GCE or on your local PC)
 * `controller/`: Go client code for controller (runs on your PC natively)
 * `docker/`: multiple dockerfiles for compiling(debugging), running, and common utils
 * `example/`: generator of `RenderTask` or `RenderMovieTask` for various scenes
@@ -25,10 +25,9 @@ you usually don't need to run docker manually.
 
 After that, you can run, for example, `./example/animation_demo.py` and `./controller/pentatope.py` to render it.
 
-You need to supply your AWS credentials as a JSON file
-(that contains "access_key" and "secret_access_key" as a top-level map),
-if you are to use distributed rendering accessible via `--aws` flag in
-`controller/pentatope.py`.
+You need to supply your GCE credentials as a JSON file
+if you are to use distributed rendering accessible via `--gce` flag in
+`./pentatope_controller`.
 
 
 ## Development
@@ -39,15 +38,6 @@ You can use `docker.io/xanxys/pentatope-dev` image and mounting local directory 
 a container. (e.g. `sudo docker run -t -i --rm -v $(pwd):/root/local -p 8080:80 docker.io/xanxys/pentatope-dev bash`)
 
 ## Credentials
-
-### AWS (`--aws`)
-Your access key in the following JSON:
-```
-{
-	"access_key": "<Your Access Key>",
-	"secret_access_key": "<Your Secret Access Key>"
-}
-```
 
 ### GCE (`--gce`)
 Your service account oauth key in JSON format, as downloaded from the console.

@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -330,13 +329,10 @@ func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float64 {
 func createprovider(
 	debugFe *DebugFrontend,
 	coreNeeded float64, duration float64,
-	localFlag *bool, awsFlag *string, gceFlag *string) Provider {
+	localFlag *bool, gceFlag *string) Provider {
 
 	nProvider := 0
 	if *localFlag {
-		nProvider++
-	}
-	if *awsFlag != "" {
 		nProvider++
 	}
 	if *gceFlag != "" {
@@ -349,21 +345,6 @@ func createprovider(
 
 	if *localFlag {
 		return new(LocalProvider)
-	} else if *awsFlag != "" {
-		awsJson, err := ioutil.ReadFile(*awsFlag)
-		if err != nil {
-			log.Println("Failed to create AWS provider because credential file was not found.")
-			return nil
-		}
-		var credential AWSCredential
-		json.Unmarshal(awsJson, &credential)
-		if credential.AccessKey == "" || credential.SecretAccessKey == "" {
-			fmt.Printf("Couldn't read AccessKey or SecretAccessKey from %s\n", *awsFlag)
-			return nil
-		}
-		ec2Prov := NewEC2Provider(credential)
-		debugFe.RegisterModule(ec2Prov)
-		return ec2Prov
 	} else if *gceFlag != "" {
 		gceKey, err := ioutil.ReadFile(*gceFlag)
 		if err != nil {
@@ -383,7 +364,6 @@ func main() {
 
 	// Resource provider.
 	localFlag := flag.Bool("local", false, "Use this machine.")
-	awsFlag := flag.String("aws", "", "Use Amazon Web Services with a json credential file.")
 	gceFlag := flag.String("gce", "", "Use Google Compute Engine with a text file containing API key.")
 	// I/O
 	input := flag.String("input", "", "Input .pb file containing an animation.")
@@ -397,7 +377,7 @@ func main() {
 	coreNeeded := difficulty / targetHour
 	log.Printf("Estimated: %.1f cores necessary for %.1f hour target\n", coreNeeded, targetHour)
 
-	provider := createprovider(debugFe, coreNeeded, targetHour, localFlag, awsFlag, gceFlag)
+	provider := createprovider(debugFe, coreNeeded, targetHour, localFlag, gceFlag)
 	if provider == nil {
 		log.Println("You need at one usable provider.")
 		os.Exit(1)

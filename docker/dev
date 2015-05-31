@@ -31,7 +31,6 @@ ENV GOPATH /root/go
 
 # Go libraries
 RUN go get code.google.com/p/gogoprotobuf/proto; \
-    go get github.com/awslabs/aws-sdk-go; \
     go get github.com/vaughan0/go-ini; \
     go get golang.org/x/oauth2; \
     go get golang.org/x/oauth2/google; \
