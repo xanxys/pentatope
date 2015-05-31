@@ -130,21 +130,25 @@ func (provider *GCEProvider) Prepare() chan string {
 		}
 	}
 
-	// Wait until the instances to become running & responding
+	// Wait for all instances in parallel.
+	// We can return immediately, because calling Discard() before instances become ready
+	// will be ok because instances are already in PENDING state.
 	urls := make(chan string, provider.instanceNum)
 	for _, name := range provider.instanceNames {
-		for {
-			log.Printf("Pinging status for %s\n", name)
-			resp, _ := service.Instances.Get(provider.projectId, provider.zone, name).Do()
-			if resp != nil && resp.Status == "RUNNING" && len(resp.NetworkInterfaces) > 0 {
-				ip := resp.NetworkInterfaces[0].AccessConfigs[0].NatIP
-				url := fmt.Sprintf("http://%s:8000", ip)
-				BlockUntilAvailable(url, 5*time.Second)
-				urls <- url
-				break
+		go func(name string) {
+			for {
+				log.Printf("Pinging status for %s\n", name)
+				resp, _ := service.Instances.Get(provider.projectId, provider.zone, name).Do()
+				if resp != nil && resp.Status == "RUNNING" && len(resp.NetworkInterfaces) > 0 {
+					ip := resp.NetworkInterfaces[0].AccessConfigs[0].NatIP
+					url := fmt.Sprintf("http://%s:8000", ip)
+					BlockUntilAvailable(url, 5*time.Second)
+					urls <- url
+					return
+				}
+				time.Sleep(5 * time.Second)
 			}
-			time.Sleep(5 * time.Second)
-		}
+		}(name)
 	}
 	return urls
 }

@@ -125,11 +125,11 @@ func (ctrl *WorkerCacheController) setCacheState(serverUrl string, canUseCache b
 	ctrl.cached[serverUrl] = canUseCache
 }
 
-// Return true when shard rendering succeeds.
+// Return nil when shard rendering succeeds.
 func renderShard(
 	cacheCtrl *WorkerCacheController,
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
-	serverUrl string, encoder *MovieEncoder) bool {
+	serverUrl string, encoder *MovieEncoder) error {
 
 	for {
 		log.Println("Rendering", shard.frameIndex, "in", serverUrl)
@@ -156,7 +156,7 @@ func renderShard(
 
 			encoder.addFrame(shard.frameIndex, resp.Output)
 			log.Println("Shard", shard, "complete")
-			return true
+			return nil
 		} else if *resp.Status == pentatope.RenderResponse_SCENE_UNAVAILABLE {
 			cacheCtrl.setCacheState(serverUrl, false)
 
@@ -164,11 +164,11 @@ func renderShard(
 				log.Printf("Cache unavailable despite expectation; disabling cache")
 			} else {
 				log.Println("Worker incorrectly returning SCENE_UNAVAILABLE")
-				return false
+				return fmt.Errorf("SCENE_UNAVAILABLE at server=%s", serverUrl)
 			}
 		} else {
 			log.Println("Error in worker", resp.ErrorMessage)
-			return false
+			return fmt.Errorf("Error at server=%s, err=%s", serverUrl, resp.ErrorMessage)
 		}
 	}
 }
@@ -249,15 +249,44 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 	log.Println("Preparing provider", provider.SafeToString())
 	cUrls := provider.Prepare()
 	go func() {
+		servers := make(map[string]bool) // serverUrl -> isIdle
 		for {
-			url := <-cUrls
-			log.Printf("Got new server: %s\n", url)
-			go func(serverUrl string) {
-				for {
-					shard := <-cTask
-					cResult <- renderShard(cacheCtrl, task, shard, serverUrl, encoder)
+			select {
+			case shard := <-cTask:
+				log.Println("Searching idle server")
+				idleServer := ""
+				for server, isIdle := range servers {
+					if isIdle {
+						idleServer = server
+						break
+					}
 				}
-			}(url)
+
+				if idleServer != "" {
+					go func() {
+						log.Printf("R/R session for %s\n", idleServer)
+						servers[idleServer] = false
+						err := renderShard(cacheCtrl, task, shard, idleServer, encoder)
+						if err == nil {
+							cResult <- true
+						} else {
+							log.Println("Shard failed in server. Re-queueing the shard.")
+							cTask <- shard
+						}
+						servers[idleServer] = true
+					}()
+				} else {
+					// All servers are busy now.
+					log.Printf("All servers are busy. Retrying soon.")
+					time.Sleep(time.Second)
+					go func() {
+						cTask <- shard
+					}()
+				}
+			case url := <-cUrls:
+				log.Printf("Got new server: %s\n", url)
+				servers[url] = true
+			}
 		}
 	}()
 
