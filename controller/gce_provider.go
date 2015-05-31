@@ -30,7 +30,7 @@ func NewGCEProvider(keyJson []byte, coreNeeded float32) *GCEProvider {
 	provider.keyJson = keyJson
 
 	provider.instanceNum, provider.corePerMachine = satisfyCoreNeed(int(coreNeeded))
-	provider.zone = "us-central1-a"
+	provider.zone = "us-central1-b"
 
 	provider.projectId = "pentatope-955"
 	provider.runId = fmt.Sprintf("%04d", rand.Int()%10000)
@@ -39,7 +39,7 @@ func NewGCEProvider(keyJson []byte, coreNeeded float32) *GCEProvider {
 
 // Return (#machine, #core)
 func satisfyCoreNeed(coreNeeded int) (int, int) {
-	coreChoices := []int{1, 2, 4, 8, 16}
+	coreChoices := []int{1, 2, 4, 8, 16, 32}
 	for _, numCore := range coreChoices {
 		if coreNeeded < numCore {
 			return 1, numCore
@@ -164,7 +164,7 @@ func (provider *GCEProvider) CalcBill() (string, float64) {
 }
 
 func (provider *GCEProvider) getStandardMachineType() string {
-	accepableCores := []int{1, 2, 4, 8, 16}
+	accepableCores := []int{1, 2, 4, 8, 16, 32}
 
 	for _, acceptableCore := range accepableCores {
 		if provider.corePerMachine == acceptableCore {
