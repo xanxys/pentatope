@@ -229,15 +229,17 @@ func loadRenderMovieTask(inputFile string) *pentatope.RenderMovieTask {
 	return task
 }
 
-func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File string) {
-	if len(task.Frames) == 0 {
-		log.Println("One or more frames required")
-		return
-	}
+type WorkerPool struct {
+	cTask         chan *TaskShard
+	cResult       chan bool
+	cFinishers    []chan bool
+	cDiscardEnded chan bool
+	encoder       *MovieEncoder
+	providers     []Provider
+	nFrames       int
+}
 
-	encoder := NewMovieEncoder(*task.Framerate)
-	defer encoder.clean()
-
+func NewWorkerPool(providers []Provider, task *pentatope.RenderMovieTask, encoder *MovieEncoder) *WorkerPool {
 	cTask := make(chan *TaskShard, 1)
 	cResult := make(chan bool, len(task.Frames))
 	cFinishers := make([]chan bool, 0)
@@ -283,19 +285,56 @@ func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File
 		}(provider)
 	}
 
+	return &WorkerPool{
+		cTask:         cTask,
+		cResult:       cResult,
+		cFinishers:    cFinishers,
+		cDiscardEnded: cDiscardEnded,
+		providers:     providers,
+		encoder:       encoder,
+		nFrames:       len(task.Frames),
+	}
+}
+
+func (pool *WorkerPool) AddShard(shard *TaskShard) {
+	pool.cTask <- shard
+}
+
+func (pool *WorkerPool) WaitFinish() {
+	for ix := 0; ix < pool.nFrames; ix++ {
+		<-pool.cResult
+	}
+
+	log.Println("Sending terminate requests")
+	for _, cFinisher := range pool.cFinishers {
+		cFinisher <- true
+	}
+}
+
+func (pool *WorkerPool) WaitDiscard() {
+	for range pool.providers {
+		<-pool.cDiscardEnded
+	}
+}
+
+func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File string) {
+	if len(task.Frames) == 0 {
+		log.Println("One or more frames required")
+		return
+	}
+
+	encoder := NewMovieEncoder(*task.Framerate)
+	defer encoder.clean()
+
+	pool := NewWorkerPool(providers, task, encoder)
+
 	log.Println("Feeding tasks")
 	for ix, frameConfig := range task.Frames {
 		log.Println("Queueing", ix)
-		cTask <- &TaskShard{ix, frameConfig}
+		pool.AddShard(&TaskShard{ix, frameConfig})
 	}
 	log.Println("Waiting all shards to finish")
-	for range task.Frames {
-		<-cResult
-	}
-	log.Println("Sending terminate requests")
-	for _, cFinisher := range cFinishers {
-		cFinisher <- true
-	}
+	pool.WaitFinish()
 
 	// Encode
 	log.Println("Converting to mp4", outputMp4File)
@@ -303,9 +342,7 @@ func render(providers []Provider, task *pentatope.RenderMovieTask, outputMp4File
 	log.Println("Encoding finished")
 
 	log.Println("Waiting discard to finish")
-	for range providers {
-		<-cDiscardEnded
-	}
+	pool.WaitDiscard()
 }
 
 // Return core * hout of the given rendering task.
