@@ -114,6 +114,10 @@ func (provider *GCEProvider) Prepare() chan string {
 					},
 				},
 			},
+			Scheduling: &compute.Scheduling{
+				Preemptible:       true,
+				OnHostMaintenance: "TERMINATE",
+			},
 			Metadata: &compute.Metadata{
 				Items: []*compute.MetadataItems{
 					{
@@ -165,7 +169,7 @@ func (provider *GCEProvider) Discard() {
 }
 
 func (provider *GCEProvider) CalcBill() (string, float64) {
-	const pricePerHourPerCore = 0.05
+	const pricePerHourPerCore = 0.015
 
 	billingDuration := math.Max(1.0/6.0, provider.estDuration)
 	price := pricePerHourPerCore * float64(provider.corePerMachine) * float64(provider.instanceNum) * billingDuration
