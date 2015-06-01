@@ -245,6 +245,7 @@ type WorkerPool struct {
 }
 
 func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *MovieEncoder) *WorkerPool {
+	const MAX_FAILURES = 3
 	cTask := make(chan *TaskShard, 1)
 	cResult := make(chan bool, len(task.Frames))
 
@@ -254,6 +255,7 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 	cUrls := provider.Prepare()
 	go func() {
 		servers := make(map[string]bool) // serverUrl -> isIdle
+		failures := make(map[string]int) // serverUrl -> failure count
 		for {
 			select {
 			case shard := <-cTask:
@@ -275,6 +277,12 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 							cResult <- true
 						} else {
 							log.Println("Shard failed in server. Re-queueing the shard.")
+							failures[idleServer]++
+							if failures[idleServer] >= MAX_FAILURES {
+								log.Printf("Removing %s since its failure count is %d\n", idleServer, failures[idleServer])
+								delete(servers, idleServer)
+								delete(failures, idleServer)
+							}
 							cTask <- shard
 						}
 						servers[idleServer] = true
@@ -289,6 +297,7 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 			case url := <-cUrls:
 				log.Printf("Got new server: %s\n", url)
 				servers[url] = true
+				failures[url] = 0
 			}
 		}
 	}()
