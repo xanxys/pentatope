@@ -70,7 +70,7 @@ Generate one of the shots of scenes.""",
         sys.exit(1)
 
     if args.test:
-        sample_per_pixel = 15
+        sample_per_pixel = 10
         image_size = (160, 120)
         fps = 6
     else:
