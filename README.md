@@ -11,6 +11,17 @@ Implementation details, especially class hierarchy is designed under
 heavy influence of [pbrt](http://www.pbrt.org/).
 
 
+## Goals
+* low-poly artistic experiment with 4-d space
+* every computation derived from a set of well-defined equations
+
+## Non-goals
+* generic, fast, or stable renderer for production
+* physics-based scene generator (i.e. simulation of things other than optics)
+* high-poly, asset-intenstive scene description
+* interactive scene modification
+
+
 ## Project Structure
 * `worker/`: C++ server code for worker node (runs in docker, either on GCE or on your local PC)
 * `controller/`: Go client code for controller (runs on your PC natively)
