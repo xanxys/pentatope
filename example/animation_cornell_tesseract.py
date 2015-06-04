@@ -32,8 +32,8 @@ def configure_camera(camera_config, t, image_size):
     # lookat (0, 0, 0, 1)
     # by (X,Y) & (X,Z)-rotation
     pos0 = np.array([0, -0.95, 0, 1])
-    rot_per_sec_xy = 1 / 2
-    rot_per_sec_xz = 1 / 3
+    rot_per_sec_xy = 1 / 4
+    rot_per_sec_xz = 1 / 5
     angle_xy = 2 * math.pi * rot_per_sec_xy * t
     angle_xz = 2 * math.pi * rot_per_sec_xz * t
     rot_xy = np.eye(4)
@@ -92,14 +92,11 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '--test', action='store_true',
-        help='Lower sample/px and smaller resolution for quick testing.')
+        help='Low sample/px, framerate, resolution for quick testing.')
     # animation settings.
     parser.add_argument(
-        '--duration', type=float, default=5.0,
+        '--duration', type=float, default=10.0,
         help='Duration of animation')
-    parser.add_argument(
-        '--fps', type=float, default=30,
-        help='frames / second')
     # output options.
     parser.add_argument(
         '--output', type=str, default=None,
@@ -117,9 +114,11 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
 
     # Create one kind of task.
     if args.test:
+        fps = 5
         sample_per_pixel = 100
         image_size = (160, 120)
     else:
+        fps = 30
         sample_per_pixel = 250
         image_size = (640, 480)
 
@@ -134,10 +133,10 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
     else:
         task = RenderMovieTask()
         load_cornell_scene(task)
-        task.framerate = args.fps
+        task.framerate = fps
         task.sample_per_pixel = sample_per_pixel
         task.width, task.height = image_size
 
-        add_cornell_animation_frames(task, args.duration, args.fps, image_size)
+        add_cornell_animation_frames(task, args.duration, fps, image_size)
         with open(args.shot, "wb") as f_movie_task:
             f_movie_task.write(task.SerializeToString())
