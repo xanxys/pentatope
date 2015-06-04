@@ -185,9 +185,19 @@ message DiscGeometry {
 message ObjectMaterial {
     // Model after (pseudo) real-life objects, because we don't have
     // established BRDF models for 4-d space.
+    // Also, ObjectMaterial describes the whole volume of an object,
+    // in addition to its surface.
+    //
+    // DO:
+    // * add new materials for completely new kind of objects
+    // DONT:
+    // * implement generic algebraic shader
+    // * create layered material system
+    // * do textures (fog density field is maybe ok, but surface texture is huge no-no)
     enum MaterialType {
         UNIFORM_LAMBERT = 1;
-        GLASS = 2;
+        GLASS = 2;  // no dispersion, transparent.
+        WATER = 3;  // no dispersion, volumetric tint.
     }
     extensions 100 to max;
 
