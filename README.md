@@ -14,13 +14,14 @@ heavy influence of [pbrt](http://www.pbrt.org/).
 ## Goals
 * low-poly artistic experiment with 4-d space
 * every computation derived from a set of well-defined equations
+* generative scene description
+* infra to support quick iteration (< 25 min / shot-iteration)
 
 ## Non-goals
 * generic, fast, or stable renderer for production
-* physics-based scene generator (i.e. simulation of things other than optics)
+* multi-modal physics simulator for 4-d space
 * high-poly, asset-intenstive scene description
 * interactive scene modification
-
 
 ## Project Structure
 * `worker/`: C++ server code for worker node (runs in docker, either on GCE or on your local PC)
