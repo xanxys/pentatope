@@ -50,36 +50,57 @@ Spectrum Scene::trace(const Ray& ray, Sampler& sampler, int depth) const {
     }
 
     auto isect = intersect(ray);
-    if(isect.first) {
-        const std::unique_ptr<BSDF> o_bsdf = std::move(isect.first);
-        const MicroGeometry mg = isect.second;
-        const float epsilon = 1e-6;
+    if(scattering_sigma) {
+        // Sample particle scattering distance.
+        const float t_scatter =
+            std::exponential_distribution<float>(1 / *scattering_sigma)(sampler.gen);
 
-        const auto specular = o_bsdf->specular(-ray.direction);
-        if(specular) {
-            const auto dir = specular->first;
-            // avoid self-intersection by offseting origin.
-            Ray new_ray(mg.pos() + epsilon * dir, dir);
-            return
-                specular->second.cwiseProduct(
-                    trace(new_ray, sampler, depth - 1)) +
-                o_bsdf->emission(-ray.direction);
+        if(isect.first && ray.at(isect.second.pos()) < t_scatter) {
+            return traceSolid(std::move(isect), ray, sampler,depth);
         } else {
-            const auto dir = sampler.uniformHemisphere(mg.normal());
-            // avoid self-intersection by offseting origin.
-            Ray new_ray(mg.pos() + epsilon * dir, dir);
+            // scatter uniformly to all direction
+            // TODO: direct light.
+            Ray new_ray(ray.at(t_scatter), sampler.uniformSphere());
             return
-                o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
-                    trace(new_ray, sampler, depth - 1)) *
-                (std::abs(mg.normal().dot(dir)) * pi * pi) +
-                o_bsdf->emission(-ray.direction) +
-                directLight(
-                    mg.pos() + epsilon * dir,
-                    mg.normal(),
-                    -ray.direction, *o_bsdf);
+                (1.0 / (2 * pi * pi)) * trace(new_ray, sampler, depth + 1);
         }
     } else {
-        return background_radiance;
+        if(isect.first) {
+            return traceSolid(std::move(isect), ray, sampler, depth);
+        } else {
+            return background_radiance;
+        }
+    }
+}
+
+Spectrum Scene::traceSolid(
+        std::pair<std::unique_ptr<BSDF>, MicroGeometry>&& isect,
+        const Ray& ray, Sampler& sampler, int depth) const {
+    const std::unique_ptr<BSDF> o_bsdf = std::move(isect.first);
+    const MicroGeometry mg = isect.second;
+
+    const auto specular = o_bsdf->specular(-ray.direction);
+    if(specular) {
+        const auto dir = specular->first;
+        // avoid self-intersection by offseting origin.
+        Ray new_ray(mg.pos() + EPSILON_SURFACE_OFFSET * dir, dir);
+        return
+            specular->second.cwiseProduct(
+                trace(new_ray, sampler, depth - 1)) +
+            o_bsdf->emission(-ray.direction);
+    } else {
+        const auto dir = sampler.uniformHemisphere(mg.normal());
+        // avoid self-intersection by offseting origin.
+        Ray new_ray(mg.pos() + EPSILON_SURFACE_OFFSET * dir, dir);
+        return
+            o_bsdf->bsdf(dir, -ray.direction).cwiseProduct(
+                trace(new_ray, sampler, depth - 1)) *
+            (std::abs(mg.normal().dot(dir)) * pi * pi) +
+            o_bsdf->emission(-ray.direction) +
+            directLight(
+                mg.pos() + EPSILON_SURFACE_OFFSET * dir,
+                mg.normal(),
+                -ray.direction, *o_bsdf);
     }
 }
 

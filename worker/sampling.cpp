@@ -33,6 +33,25 @@ Eigen::Vector4f Sampler::uniformHemisphere(const Eigen::Vector4f& normal) {
     }
 }
 
+
+Eigen::Vector4f Sampler::uniformSphere() {
+    std::uniform_real_distribution<float> interval(-1, 1);
+    Eigen::Vector4f result;
+    while(true) {
+        result = Eigen::Vector4f(
+            interval(gen),
+            interval(gen),
+            interval(gen),
+            interval(gen));
+        const float radius = result.norm();
+        if(radius > 1 || radius == 0) {
+            continue;
+        }
+        result /= radius;
+        return result;
+    }
+}
+
 std::vector<Sampler> Sampler::split(int n) {
     assert(n >= 0);
     std::uniform_int_distribution<uint64_t> prob_seed(

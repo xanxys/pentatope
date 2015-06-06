@@ -61,7 +61,14 @@ public:
 
     bool isVisibleFrom(
 		const Eigen::Vector4f& from, const Eigen::Vector4f& to) const;
+
 private:
+    Spectrum traceSolid(
+        std::pair<std::unique_ptr<BSDF>, MicroGeometry>&& isect,
+        const Ray& ray, Sampler& sampler, int depth) const;
+private:
+    const float EPSILON_SURFACE_OFFSET = 1e-6;
+
     std::vector<Object> objects;
     std::vector<std::unique_ptr<Light>> lights;
     Spectrum background_radiance;

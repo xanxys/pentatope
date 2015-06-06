@@ -18,6 +18,7 @@ public:
     std::vector<Sampler> split(int n);
 
     Eigen::Vector4f uniformHemisphere(const Eigen::Vector4f& normal);
+    Eigen::Vector4f uniformSphere();
 public:
     std::mt19937 gen;
 };

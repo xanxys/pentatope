@@ -81,7 +81,6 @@ private:
     float refractive_index;
 };
 
-
 // Although lights have less flexibility than EmissionBRDF,
 // Lights gets special sampling consideration, so are far more efficient.
 class Light {
