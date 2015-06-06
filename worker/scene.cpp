@@ -62,7 +62,7 @@ Spectrum Scene::trace(const Ray& ray, Sampler& sampler, int depth) const {
             // TODO: direct light.
             Ray new_ray(ray.at(t_scatter), sampler.uniformSphere());
             return
-                (1.0 / (2 * pi * pi)) * trace(new_ray, sampler, depth + 1);
+                (1.0 / (2 * pi * pi)) * trace(new_ray, sampler, depth - 1);
         }
     } else {
         if(isect.first) {

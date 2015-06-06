@@ -193,6 +193,8 @@ def set_landscape(scene):
     """
     Set everything(trees, lands, lights) to scene.
     """
+    scene.uniform_scattering.sigma = 1.0
+
     scene.background_radiance.r = 1e-3
     scene.background_radiance.g = 1e-3
     scene.background_radiance.b = 1.2e-3
@@ -217,7 +219,7 @@ Generate a scene containing a fractal landscape and trees.""",
     args = parser.parse_args()
 
     scene = proto.RenderScene()
-    add_land(scene)
+    set_landscape(scene)
 
     with open("scene.pb", "wb") as f_scene:
         f_scene.write(scene.SerializeToString())
