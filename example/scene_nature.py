@@ -3,7 +3,7 @@ from __future__ import print_function, division
 import argparse
 import math
 import numpy as np
-import render_task_pb2 as proto
+import scene_pb2 as proto
 import scipy.ndimage
 import scipy.linalg as la
 

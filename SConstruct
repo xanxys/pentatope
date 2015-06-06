@@ -5,7 +5,7 @@ env = Environment()
 # manually emulate variant dir
 proto_files = []
 
-for name in ["render_task", "render_server", "physics_base"]:
+for name in ["physics_base", "render_server", "render_task", "scene"]:
     proto_files += env.Command(
         ['build/proto/%s.pb.cc' % name, 'build/proto/%s.pb.h' % name],
         ['proto/%s.proto' % name],
