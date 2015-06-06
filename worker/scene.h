@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include <boost/optional.hpp>
 #include <Eigen/Dense>
 #include <glog/logging.h>
 
@@ -84,7 +85,7 @@ private:
 // Provides radiance interface (trace) externally.
 class Scene {
 public:
-    Scene(const Spectrum& background_radiance);
+    Scene(const Spectrum& background_radiance, const boost::optional<float>& scattering_sigma);
 
     // Insert an Object to the Scene. It cannot be deleted once added.
     void addObject(Object object);
@@ -127,6 +128,8 @@ private:
     std::vector<Object> objects;
     std::vector<std::unique_ptr<Light>> lights;
     Spectrum background_radiance;
+
+    boost::optional<float> scattering_sigma;
 
     std::unique_ptr<Accel> accel;
 };

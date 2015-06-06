@@ -185,8 +185,9 @@ BVHAccel::BVHNode::BVHNode() :
 }
 
 
-Scene::Scene(const Spectrum& background_radiance) :
-        background_radiance(background_radiance) {
+Scene::Scene(const Spectrum& background_radiance, const boost::optional<float>& scattering_sigma) :
+        background_radiance(background_radiance),
+        scattering_sigma(scattering_sigma) {
 }
 
 void Scene::addObject(Object object) {

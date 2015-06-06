@@ -190,7 +190,14 @@ std::unique_ptr<Scene> loadScene(const RenderScene& rs) {
     if(rs.has_background_radiance()) {
         background = loadSpectrum(rs.background_radiance());
     }
-    std::unique_ptr<Scene> scene_p(new Scene(background));
+    boost::optional<float> scattering_sigma;
+    if(rs.has_uniform_scattering()) {
+        if(rs.uniform_scattering().sigma() <= 0) {
+            throw invalid_task("Scattering sigma must be positive");
+        }
+        scattering_sigma = rs.uniform_scattering().sigma();
+    }
+    std::unique_ptr<Scene> scene_p(new Scene(background, scattering_sigma));
     Scene& scene = *scene_p;
     for(const auto& object : rs.objects()) {
         scene.addObject(loadObject(object));

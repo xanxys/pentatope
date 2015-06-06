@@ -10,6 +10,16 @@ message RenderScene {
 
     // Uniform, background radiance. Assumed 0 if omitted.
     optional SpectrumProto background_radiance = 3;
+
+    // Global uniform scattering. Vacuum is assumed if omitted.
+    optional UniformScattering uniform_scattering = 4;
+}
+
+message UniformScattering {
+	// Distance such that a photon traveling this
+	// is scattered with 1/e probability.
+	// Must be positive.
+	required float sigma = 1;
 }
 
 message SceneObject {

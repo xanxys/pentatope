@@ -12,6 +12,7 @@
 #include <space.h>
 
 #include <proto/render_task.pb.h>
+#include <proto/scene.pb.h>
 
 namespace pentatope {
 
