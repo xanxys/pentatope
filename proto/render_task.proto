@@ -3,6 +3,7 @@
 // between a message vs. a class, but don't be too clever to
 // avoid collision.
 package pentatope;
+import "physics_base.proto";
 
 // A description of rendering a movie with static scene.
 // This assumes fixed frame-rate, 2d RGB image stream.
@@ -73,46 +74,6 @@ message CameraConfig {
     // only applicable to perspective camera_type
     optional float fov_x = 6;
     optional float fov_y = 7;
-}
-
-// 4-d rigid transform (= SE(4))
-// transform(x) = rotation * x + translation
-message RigidTransform {
-    // row-major 4x4 rotation matrix.
-    // must have 16 elements, and the matrix
-    // is a proper rotation matrix (det==1).
-    // 0 1 2 3
-    // ...
-    // ...  15
-    repeated float rotation = 1 [packed=true];
-
-    // 4-element translation vector.
-    repeated float translation = 2 [packed=true];
-}
-
-message SpectrumProto {
-    // Color values in RGB space.
-    // not well-defined.
-    optional float r = 1;
-    optional float g = 2;
-    optional float b = 3;
-}
-
-// A point in 4-d space.
-message Point {
-    required float x = 1;
-    required float y = 2;
-    required float z = 3;
-    required float w = 4;
-}
-
-// A unit length vector in 4-d space.
-// It can be a normal, a basis, or any other thing.
-message Direction {
-    required float x = 1;
-    required float y = 2;
-    required float z = 3;
-    required float w = 4;
 }
 
 // Scene contains objects and lights.
