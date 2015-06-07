@@ -51,23 +51,23 @@ public:
     // raytracing.
     Spectrum trace(const Ray& ray, Sampler& sampler, int depth) const;
 
-
     // Calculate radiance that comes to pos, and reflected to dir_out.
     // You must not call this for specular-only BSDFs.
-    Spectrum directLight(
+    Spectrum directLightToSurface(
         const Eigen::Vector4f& pos,
         const Eigen::Vector4f& normal,
         const Eigen::Vector4f& dir_out, const BSDF& bsdf) const;
 
+    // Calculate radiance that comes to pos, and scattered to dir_out.
+    Spectrum directLightToParticle(
+        const Eigen::Vector4f& pos,
+        const Eigen::Vector4f& dir_out) const;
+
     bool isVisibleFrom(
 		const Eigen::Vector4f& from, const Eigen::Vector4f& to) const;
-
-private:
-    Spectrum traceSolid(
-        std::pair<std::unique_ptr<BSDF>, MicroGeometry>&& isect,
-        const Ray& ray, Sampler& sampler, int depth) const;
 private:
     const float EPSILON_SURFACE_OFFSET = 1e-6;
+    const float SCATTERING_STEP = 2.5;
 
     std::vector<Object> objects;
     std::vector<std::unique_ptr<Light>> lights;
