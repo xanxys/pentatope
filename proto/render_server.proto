@@ -32,7 +32,7 @@ message RenderResponse {
 	required Status status = 4;
 
 	// Optional human-readable error message.
-	// Don't fill this field when is_ok==true.
+	// Don't fill this field when status==SUCCESS.
 	// Also don't use this field to add machine-readable status code.
 	optional string error_message = 2;
 
