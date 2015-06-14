@@ -9,9 +9,12 @@ import (
 	"path"
 )
 
+// This is currently more like a frame colelctor.
 type MovieEncoder struct {
 	framerate float32
 	imageDir  string
+
+	blobs map[int][]byte
 }
 
 func NewMovieEncoder(framerate float32) *MovieEncoder {
@@ -27,8 +30,20 @@ func NewMovieEncoder(framerate float32) *MovieEncoder {
 }
 
 func (encoder *MovieEncoder) AddFrame(frameIndex int, imageBlob []byte) {
+	encoder.blobs[frameIndex] = imageBlob
 	imagePath := path.Join(encoder.imageDir, fmt.Sprintf("frame-%06d.png", frameIndex))
 	ioutil.WriteFile(imagePath, imageBlob, 0777)
+}
+
+func (encoder *MovieEncoder) RetrieveFrames() [][]byte {
+	frames := make([][]byte, 0)
+	for _, blob := range encoder.blobs {
+		frames = append(frames, blob)
+	}
+	if len(frames) != len(encoder.blobs) {
+		log.Panic("Trying to retrieve all frames from incomplete frame collection")
+	}
+	return frames
 }
 
 func (encoder *MovieEncoder) EncodeToMp4File(outputMp4File string) {
