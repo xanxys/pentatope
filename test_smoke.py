@@ -47,7 +47,7 @@ class TestSceneExamples(unittest.TestCase):
 
     def test_anim_demo(self):
         subprocess.call([
-            "example/animation_demo.py",
+            "example/animation_nature.py",
             "--test",
             "--output", os.path.join(self.temp_dir, "anim_demo.pb"),
             ])
