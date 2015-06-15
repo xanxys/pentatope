@@ -36,9 +36,19 @@ message RenderResponse {
 	// Also don't use this field to add machine-readable status code.
 	optional string error_message = 2;
 
-	// Output blob. Typically image.
+	// DEPRECATED: Output blob. Typically image.
 	optional bytes output = 3;
+
+	// Output tile.
+	optional ImageTile output_tile = 5;
 
 	// Deprecated fields.
 	optional bool deprecated_is_ok = 1;
+}
+
+// A 2d rectangular image patch. Currently LDR png, but will be
+// HDR. #47
+message ImageTile {
+	// 8 bit * 3 = 24 bit RGB image in PNG format
+	optional bytes blob_png = 1;
 }

@@ -109,6 +109,7 @@ private:
         std::vector<uint8_t> buffer;
         cv::imencode(".png", result, buffer);
         response.set_output(std::string(buffer.begin(), buffer.end()));
+        response.mutable_output_tile()->set_blob_png(std::string(buffer.begin(), buffer.end()));
         response.set_status(RenderResponse::SUCCESS);
     }
 

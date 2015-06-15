@@ -156,7 +156,7 @@ func renderShard(
 		if *resp.Status == pentatope.RenderResponse_SUCCESS {
 			cacheCtrl.setCacheState(serverUrl, true)
 
-			encoder.AddFrame(shard.frameIndex, resp.Output)
+			encoder.AddFrame(shard.frameIndex, resp.OutputTile.BlobPng)
 			log.Println("Shard", shard, "complete")
 			return nil
 		} else if *resp.Status == pentatope.RenderResponse_SCENE_UNAVAILABLE {
