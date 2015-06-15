@@ -18,6 +18,7 @@ message RenderRequest {
 	optional uint64 scene_id = 2;
 }
 
+// Next id: 6
 message RenderResponse {
 	enum Status {
 		// Successful. output is available.
@@ -36,14 +37,12 @@ message RenderResponse {
 	// Also don't use this field to add machine-readable status code.
 	optional string error_message = 2;
 
-	// DEPRECATED: Output blob. Typically image.
-	optional bytes output = 3;
-
 	// Output tile.
 	optional ImageTile output_tile = 5;
 
 	// Deprecated fields.
 	optional bool deprecated_is_ok = 1;
+	optional bytes deprecated_output = 3;
 }
 
 // A 2d rectangular image patch. Currently LDR png, but will be

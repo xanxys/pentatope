@@ -131,7 +131,7 @@ class TestPentatopeServer(unittest.TestCase):
             render_server_pb2.RenderResponse.SUCCESS,
             render_response.status)
         self.assertFalse(render_response.HasField("error_message"))
-        self.assertGreater(len(render_response.output), 0)
+        self.assertGreater(len(render_response.output_tile.blob_png), 0)
 
 
 if __name__ == '__main__':
