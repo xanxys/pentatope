@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	WorkerContainerName   = "docker.io/xanxys/pentatope-prod"
+	WorkerPathInContainer = "/root/pentatope/worker"
+)
+
 func BlockUntilAvailable(url string, interval time.Duration) {
 	for {
 		log.Println("Pinging", url, "for RPC availability")

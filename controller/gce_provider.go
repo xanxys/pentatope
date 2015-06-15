@@ -69,8 +69,8 @@ func (provider *GCEProvider) Prepare() chan string {
 			`apt-get update`,
 			`apt-get -y install docker.io`,
 			`service docker start`,
-			`docker pull docker.io/xanxys/pentatope-prod`,
-			`docker run --publish 8000:80 docker.io/xanxys/pentatope-prod /root/pentatope/worker`,
+			fmt.Sprintf(`docker pull %s`, WorkerContainerName),
+			fmt.Sprintf(`docker run --publish 8000:80 %s %s`, WorkerContainerName, WorkerPathInContainer),
 		}, "\n")
 
 	for ix := 0; ix < provider.instanceNum; ix++ {

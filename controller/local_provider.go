@@ -25,8 +25,8 @@ func (provider *LocalProvider) Prepare() chan string {
 		"--detach=true",
 		"--name", container_name,
 		"--publish", fmt.Sprintf("%d:80", port),
-		"docker.io/xanxys/pentatope-prod",
-		"/root/pentatope/worker")
+		WorkerContainerName,
+		WorkerPathInContainer)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
