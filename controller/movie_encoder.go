@@ -26,6 +26,7 @@ func NewMovieEncoder(framerate float32) *MovieEncoder {
 	return &MovieEncoder{
 		framerate: framerate,
 		imageDir:  imageDir,
+		blobs:     make(map[int][]byte),
 	}
 }
 
