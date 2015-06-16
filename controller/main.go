@@ -128,7 +128,7 @@ func (ctrl *WorkerCacheController) setCacheState(serverUrl string, canUseCache b
 func renderShard(
 	cacheCtrl *WorkerCacheController,
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
-	serverUrl string, encoder *MovieEncoder) error {
+	serverUrl string, collector *FrameCollector) error {
 
 	for {
 		log.Println("Rendering", shard.frameIndex, "in", serverUrl)
@@ -156,7 +156,7 @@ func renderShard(
 		if *resp.Status == pentatope.RenderResponse_SUCCESS {
 			cacheCtrl.setCacheState(serverUrl, true)
 
-			encoder.AddFrame(shard.frameIndex, resp.OutputTile.BlobPng)
+			collector.AddFrame(shard.frameIndex, resp.OutputTile.BlobPng)
 			log.Println("Shard", shard, "complete")
 			return nil
 		} else if *resp.Status == pentatope.RenderResponse_SCENE_UNAVAILABLE {
@@ -193,12 +193,12 @@ type WorkerPool struct {
 	cTask  chan *TaskShard
 	nTasks int
 
-	cResult  chan bool
-	encoder  *MovieEncoder
-	provider Provider
+	cResult   chan bool
+	collector *FrameCollector
+	provider  Provider
 }
 
-func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *MovieEncoder) *WorkerPool {
+func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector *FrameCollector) *WorkerPool {
 	const MAX_FAILURES = 3
 	cTask := make(chan *TaskShard, 1)
 	cResult := make(chan bool, len(task.Frames))
@@ -226,7 +226,7 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 					go func() {
 						log.Printf("R/R session for %s\n", idleServer)
 						servers[idleServer] = false
-						err := renderShard(cacheCtrl, task, shard, idleServer, encoder)
+						err := renderShard(cacheCtrl, task, shard, idleServer, collector)
 						if err == nil {
 							cResult <- true
 						} else {
@@ -257,11 +257,11 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, encoder *
 	}()
 
 	return &WorkerPool{
-		cTask:    cTask,
-		cResult:  cResult,
-		provider: provider,
-		encoder:  encoder,
-		nTasks:   0,
+		cTask:     cTask,
+		cResult:   cResult,
+		provider:  provider,
+		collector: collector,
+		nTasks:    0,
 	}
 }
 
@@ -289,10 +289,10 @@ func render(provider Provider, task *pentatope.RenderMovieTask, outputMp4File st
 		return
 	}
 
-	encoder := NewMovieEncoder(*task.Framerate)
-	defer encoder.Clean()
+	collector := NewFrameCollector(*task.Framerate)
+	defer collector.Clean()
 
-	pool := NewWorkerPool(provider, task, encoder)
+	pool := NewWorkerPool(provider, task, collector)
 
 	log.Println("Feeding tasks")
 	for ix, frameConfig := range task.Frames {
@@ -304,7 +304,7 @@ func render(provider Provider, task *pentatope.RenderMovieTask, outputMp4File st
 
 	// Encode
 	log.Println("Converting to mp4", outputMp4File)
-	encoder.EncodeToMp4File(outputMp4File)
+	collector.EncodeToMp4File(outputMp4File)
 	log.Println("Encoding finished")
 
 	log.Println("Waiting discard to finish")

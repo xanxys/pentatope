@@ -9,55 +9,54 @@ import (
 	"path"
 )
 
-// This is currently more like a frame colelctor.
-type MovieEncoder struct {
+type FrameCollector struct {
 	framerate float32
 	imageDir  string
 
 	blobs map[int][]byte
 }
 
-func NewMovieEncoder(framerate float32) *MovieEncoder {
+func NewFrameCollector(framerate float32) *FrameCollector {
 	// Prepare output directory.
 	imageDir, err := ioutil.TempDir("", "penc")
 	if err != nil {
 		log.Panicln("Failed to create a temporary image directory", err)
 	}
-	return &MovieEncoder{
+	return &FrameCollector{
 		framerate: framerate,
 		imageDir:  imageDir,
 		blobs:     make(map[int][]byte),
 	}
 }
 
-func (encoder *MovieEncoder) AddFrame(frameIndex int, imageBlob []byte) {
-	encoder.blobs[frameIndex] = imageBlob
-	imagePath := path.Join(encoder.imageDir, fmt.Sprintf("frame-%06d.png", frameIndex))
+func (collector *FrameCollector) AddFrame(frameIndex int, imageBlob []byte) {
+	collector.blobs[frameIndex] = imageBlob
+	imagePath := path.Join(collector.imageDir, fmt.Sprintf("frame-%06d.png", frameIndex))
 	ioutil.WriteFile(imagePath, imageBlob, 0777)
 }
 
-func (encoder *MovieEncoder) RetrieveFrames() [][]byte {
+func (collector *FrameCollector) RetrieveFrames() [][]byte {
 	frames := make([][]byte, 0)
-	for _, blob := range encoder.blobs {
+	for _, blob := range collector.blobs {
 		frames = append(frames, blob)
 	}
-	if len(frames) != len(encoder.blobs) {
+	if len(frames) != len(collector.blobs) {
 		log.Panic("Trying to retrieve all frames from incomplete frame collection")
 	}
 	return frames
 }
 
-func (encoder *MovieEncoder) EncodeToMp4File(outputMp4File string) {
+func (collector *FrameCollector) EncodeToMp4File(outputMp4File string) {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-y", // Allow overwrite
-		"-framerate", fmt.Sprintf("%f", encoder.framerate),
-		"-i", path.Join(encoder.imageDir, "frame-%06d.png"),
+		"-framerate", fmt.Sprintf("%f", collector.framerate),
+		"-i", path.Join(collector.imageDir, "frame-%06d.png"),
 		"-pix_fmt", "yuv444p",
 		"-crf", "18", // visually lossless
 		"-c:v", "libx264",
 		"-loglevel", "warning",
-		"-r", fmt.Sprintf("%f", encoder.framerate),
+		"-r", fmt.Sprintf("%f", collector.framerate),
 		outputMp4File)
 	err := cmd.Run()
 	if err != nil {
@@ -65,6 +64,6 @@ func (encoder *MovieEncoder) EncodeToMp4File(outputMp4File string) {
 	}
 }
 
-func (encoder *MovieEncoder) Clean() {
-	os.RemoveAll(encoder.imageDir)
+func (collector *FrameCollector) Clean() {
+	os.RemoveAll(collector.imageDir)
 }
