@@ -28,11 +28,8 @@ func (collector *FrameCollector) AddFrame(frameIndex int, imageBlob []byte) {
 
 func (collector *FrameCollector) RetrieveFrames() [][]byte {
 	frames := make([][]byte, 0)
-	for _, blob := range collector.blobs {
-		frames = append(frames, blob)
-	}
-	if len(frames) != len(collector.blobs) {
-		log.Panic("Trying to retrieve all frames from incomplete frame collection")
+	for ix := 0; ix < len(collector.blobs); ix++ {
+		frames = append(frames, collector.blobs[ix])
 	}
 	return frames
 }
