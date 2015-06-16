@@ -45,9 +45,22 @@ message RenderResponse {
 	optional bytes deprecated_output = 3;
 }
 
-// A 2d rectangular image patch. Currently LDR png, but will be
-// HDR. #47
+// A 2d rectangular image patch, which is approximation of 2-d array of SpectrumProto.
 message ImageTile {
-	// 8 bit * 3 = 24 bit RGB image in PNG format
+	// 8 bit * 3 = 24 bit RGB image in PNG format in LDR.
 	optional bytes blob_png = 1;
+
+	// 8 bit * 3 = 24 bit RGB image in PNG format.
+	// Like real IEEE float,
+	// exponent bias is 127.
+	//
+	// We don't allow denormal numbers, NaNs, or Infs.
+	// 
+	// So,
+	// Value = 2^(exponent - 127) * (1 + mantissa/256)
+	// where 0 <= exponent < 256 && 0 <= mantissa < 256
+	//
+	// The mantissa is RGB and exponent is gray. (i.e. exponent is shared in all channels)
+	optional bytes blob_png_mantissa = 2;
+	optional bytes blob_png_exponent = 3;
 }
