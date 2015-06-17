@@ -60,7 +60,7 @@ message ImageTile {
 	// Value = 2^(exponent - 127) * (1 + mantissa/256)
 	// where 0 <= exponent < 256 && 0 <= mantissa < 256
 	//
-	// The mantissa is RGB and exponent is gray. (i.e. exponent is shared in all channels)
+	// The mantissa and exponent are RGB.
 	optional bytes blob_png_mantissa = 2;
 	optional bytes blob_png_exponent = 3;
 }

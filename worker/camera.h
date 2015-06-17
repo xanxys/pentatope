@@ -19,11 +19,12 @@ public:
     Camera2(Pose pose,
             int width, int height, Radianf fov_x, Radianf fov_y);
 
-    // return 8 bit BGR image.
+    // return 32 bit float BGR image.
     cv::Mat render(
         const Scene& scene, Sampler& sampler,
         const int samples_per_pixel,
         const int n_threads) const;
+    static cv::Mat tonemapLinear(const cv::Mat& image);
 private:
     // std::tuple<int, int, int, int> doesn't work because it lacks
     // boost::has_trivial_assign trait.
@@ -47,7 +48,6 @@ private:
         const int sampler_per_pixel,
         cv::Mat& target,
         TileSpecifier tile) const;
-    cv::Mat tonemapLinear(const cv::Mat& image) const;
 private:
     const Pose pose;
     const int width;

@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <camera.h>
+#include <image_tile.h>
 #include <loader.h>
 #include <proto/render_server.pb.h>
 #include <proto/render_task.pb.h>
@@ -105,10 +106,8 @@ private:
             }
         }
 
-        const cv::Mat result = executeRenderTask(n_threads, cached_task);
-        std::vector<uint8_t> buffer;
-        cv::imencode(".png", result, buffer);
-        response.mutable_output_tile()->set_blob_png(std::string(buffer.begin(), buffer.end()));
+        const cv::Mat result_hdr = executeRenderTask(n_threads, cached_task);
+        setImageTileFrom(result_hdr, *response.mutable_output_tile());
         response.set_status(RenderResponse::SUCCESS);
     }
 

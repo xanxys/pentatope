@@ -83,7 +83,7 @@ cv::Mat Camera2::render(
     }
 
     assert(tiles.empty());
-    return tonemapLinear(film);
+    return film;
 }
 
 
@@ -137,7 +137,10 @@ void Camera2::renderTile(
 }
 
 
-cv::Mat Camera2::tonemapLinear(const cv::Mat& film) const {
+cv::Mat Camera2::tonemapLinear(const cv::Mat& film) {
+    const int width = film.cols;
+    const int height = film.rows;
+
     // Get (mostly) max value.
     const float disp_gamma = 2.2;
     std::vector<float> vs;
