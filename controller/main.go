@@ -156,6 +156,7 @@ func renderShard(
 		if *resp.Status == pentatope.RenderResponse_SUCCESS {
 			cacheCtrl.setCacheState(serverUrl, true)
 
+			DecodeImageTile(resp.OutputTile)
 			collector.AddFrame(shard.frameIndex, resp.OutputTile.BlobPngMantissa)
 			log.Println("Shard", shard, "complete")
 			return nil
