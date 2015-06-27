@@ -12,24 +12,24 @@ import (
 type FrameCollector struct {
 	framerate float32
 
-	blobs map[int][]byte
+	frames map[int]*HdrImage
 }
 
 func NewFrameCollector(framerate float32) *FrameCollector {
 	return &FrameCollector{
 		framerate: framerate,
-		blobs:     make(map[int][]byte),
+		frames:    make(map[int]*HdrImage),
 	}
 }
 
-func (collector *FrameCollector) AddFrame(frameIndex int, imageBlob []byte) {
-	collector.blobs[frameIndex] = imageBlob
+func (collector *FrameCollector) AddFrame(frameIndex int, image *HdrImage) {
+	collector.frames[frameIndex] = image
 }
 
 func (collector *FrameCollector) RetrieveFrames() [][]byte {
 	frames := make([][]byte, 0)
-	for ix := 0; ix < len(collector.blobs); ix++ {
-		frames = append(frames, collector.blobs[ix])
+	for ix := 0; ix < len(collector.frames); ix++ {
+		frames = append(frames, collector.frames[ix].GetDebugPngBlob())
 	}
 	return frames
 }
