@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/range/irange.hpp>
+
 #include <camera.h>
 
 
@@ -17,27 +19,42 @@ void setImageTileFrom(const cv::Mat& image, ImageTile& tile) {
     tile.set_blob_png(std::string(buffer.begin(), buffer.end()));
 
     // Decompose into floating point number components.
-    cv::Mat log_temp;
-    cv::log(image, log_temp);
-    cv::Mat exponent = cv::min(255, cv::max(0, log_temp / std::log(2.0) + 127));
-    cv::Mat int_temp;
-    exponent.convertTo(int_temp, CV_8UC3);
-    exponent = int_temp;
-    exponent.convertTo(log_temp, CV_32FC3);
+    cv::Mat mantissa(image.rows, image.cols, CV_8UC3);
+    cv::Mat exponent(image.rows, image.cols, CV_8UC3);
+    for(int y : boost::irange(0, image.rows)) {
+        for(int x : boost::irange(0, image.cols)) {
+            const cv::Vec3f v = image.at<cv::Vec3f>(y, x);
+            const auto p0 = decomposeFloat(v[0]);
+            const auto p1 = decomposeFloat(v[1]);
+            const auto p2 = decomposeFloat(v[2]);
 
-    cv::Mat integral_temp;
-    cv::Mat exponent_base_e = (log_temp - 127) * std::log(2.0);
-    cv::exp(exponent_base_e , integral_temp);
-    cv::Mat mantissa = cv::min(255, cv::max(0, image / integral_temp - 1) * 256);
+            mantissa.at<cv::Vec3b>(y, x) = cv::Vec3b(p0.first, p1.first, p2.first);
+            exponent.at<cv::Vec3b>(y, x) = cv::Vec3b(p0.second, p1.second, p2.second);
+        }
+    }
 
-    cv::Mat t;
-    exponent.convertTo(t, CV_8UC3);
-    cv::imencode(".png", t, buffer);
-    tile.set_blob_png_exponent(std::string(buffer.begin(), buffer.end()));
-
-    mantissa.convertTo(t, CV_8UC3);
-    cv::imencode(".png", t, buffer);
+    cv::imencode(".png", mantissa, buffer);
     tile.set_blob_png_mantissa(std::string(buffer.begin(), buffer.end()));
+
+    cv::imencode(".png", exponent, buffer);
+    tile.set_blob_png_exponent(std::string(buffer.begin(), buffer.end()));
+}
+
+// Decompose a float into mantissa and exponent.
+std::pair<uint8_t, uint8_t> decomposeFloat(float v) {
+    if(v <= 0) {
+        // Approximate by the smallest normal number.
+        return std::make_pair(0, 0);
+    }
+    int exponent;
+    float fract = std::frexp(v, &exponent);
+    fract *= 2;
+    exponent -= 1;
+    assert(1 <= fract && fract < 2);
+
+    return std::make_pair(
+        std::min(255, std::max(0, static_cast<int>((fract - 1) * 256))),
+        std::min(255, std::max(0, exponent + 127)));
 }
 
 }  // namespace

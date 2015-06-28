@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path"
@@ -26,12 +27,39 @@ func (collector *FrameCollector) AddFrame(frameIndex int, image *HdrImage) {
 	collector.frames[frameIndex] = image
 }
 
-func (collector *FrameCollector) RetrieveFrames() [][]byte {
-	frames := make([][]byte, 0)
+func (collector *FrameCollector) RetrieveFrames() []*HdrImage {
+	frames := make([]*HdrImage, 0)
 	for ix := 0; ix < len(collector.frames); ix++ {
-		frames = append(frames, collector.frames[ix].GetDebugPngBlob())
+		frames = append(frames, collector.frames[ix])
 	}
 	return frames
+}
+
+// Tonemap the frames so that they will fit in [0, 255] range.
+func Tonemap(framerate float32, frames []*HdrImage) []*HdrImage {
+	dispGamma := 2.2
+	ldrFrames := make([]*HdrImage, 0)
+	for _, frame := range frames {
+		// Calculate max_v
+		max_v := float32(0.0)
+		for _, v := range frame.Values {
+			if v > max_v {
+				max_v = v
+			}
+		}
+		// Apply scaling
+		values := make([]float32, 0)
+		for _, v := range frame.Values {
+			values = append(values, float32(math.Pow(float64(v/max_v), 1/dispGamma)*255))
+		}
+		ldrFrame := &HdrImage{
+			Width:  frame.Width,
+			Height: frame.Height,
+			Values: values,
+		}
+		ldrFrames = append(ldrFrames, ldrFrame)
+	}
+	return ldrFrames
 }
 
 func (collector *FrameCollector) EncodeToMp4File(outputMp4File string) {
@@ -42,9 +70,9 @@ func (collector *FrameCollector) EncodeToMp4File(outputMp4File string) {
 	}
 	defer os.RemoveAll(imageDir)
 
-	for frameIndex, frameBlob := range collector.RetrieveFrames() {
+	for frameIndex, frame := range Tonemap(collector.framerate, collector.RetrieveFrames()) {
 		imagePath := path.Join(imageDir, fmt.Sprintf("frame-%06d.png", frameIndex))
-		ioutil.WriteFile(imagePath, frameBlob, 0777)
+		ioutil.WriteFile(imagePath, frame.GetSaturatedU8Png(), 0777)
 	}
 
 	cmd := exec.Command(
