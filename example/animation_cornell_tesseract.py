@@ -93,6 +93,9 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
     parser.add_argument(
         '--test', action='store_true',
         help='Low sample/px, framerate, resolution for quick testing.')
+    parser.add_argument(
+        '--prod', action='store_true',
+        help='Upload-ready high sample/pex, framerate')
     # animation settings.
     parser.add_argument(
         '--duration', type=float, default=10.0,
@@ -117,6 +120,10 @@ at (X,Y): 1/2 rot/sec && (X,Z): 1/3 rot/sec""",
         fps = 5
         sample_per_pixel = 100
         image_size = (160, 120)
+    elif args.prod:
+        fps = 30
+        sample_per_pixel = 500
+        image_size = (1280, 720)
     else:
         fps = 30
         sample_per_pixel = 250
