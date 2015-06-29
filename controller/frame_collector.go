@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sort"
 )
 
 type FrameCollector struct {
@@ -40,17 +41,17 @@ func Tonemap(framerate float32, frames []*HdrImage) []*HdrImage {
 	dispGamma := 2.2
 	ldrFrames := make([]*HdrImage, 0)
 	for _, frame := range frames {
-		// Calculate max_v
-		max_v := float32(0.0)
-		for _, v := range frame.Values {
-			if v > max_v {
-				max_v = v
-			}
+		// Calculate 99%-ile max_v
+		vs := make([]float64, len(frame.Values))
+		for ix, v := range frame.Values {
+			vs[ix] = float64(v)
 		}
+		sort.Sort(sort.Float64Slice(vs))
+		max_v := float32(vs[int(float64(len(vs))*0.99)])
 		// Apply scaling
-		values := make([]float32, 0)
-		for _, v := range frame.Values {
-			values = append(values, float32(math.Pow(float64(v/max_v), 1/dispGamma)*255))
+		values := make([]float32, len(frame.Values))
+		for ix, v := range frame.Values {
+			values[ix] = float32(math.Pow(float64(v/max_v), 1/dispGamma) * 255)
 		}
 		ldrFrame := &HdrImage{
 			Width:  frame.Width,
