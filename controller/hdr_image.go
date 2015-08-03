@@ -50,8 +50,60 @@ func DecodeImageTile(tile *pentatope.ImageTile) *HdrImage {
 	}
 }
 
+func EncodeImageTile(hdr *HdrImage) *pentatope.ImageTile {
+	rect := image.Rect(0, 0, hdr.Width, hdr.Height)
+	imageMantissa := image.NewRGBA(rect)
+	imageExponent := image.NewRGBA(rect)
+	for y := 0; y < hdr.Height; y++ {
+		for x := 0; x < hdr.Width; x++ {
+			rm, re := decomposeFloat(hdr.Values[(y*hdr.Width+x)*3+0])
+			gm, ge := decomposeFloat(hdr.Values[(y*hdr.Width+x)*3+1])
+			bm, be := decomposeFloat(hdr.Values[(y*hdr.Width+x)*3+2])
+			imageMantissa.Set(x, y, color.RGBA{R: rm, G: gm, B: bm, A: 255})
+			imageExponent.Set(x, y, color.RGBA{R: re, G: ge, B: be, A: 255})
+		}
+	}
+	blobMantissa := &bytes.Buffer{}
+	blobExponent := &bytes.Buffer{}
+	err := png.Encode(blobMantissa, imageMantissa)
+	if err != nil {
+		log.Panic(err)
+	}
+	err = png.Encode(blobExponent, imageExponent)
+	if err != nil {
+		log.Panic(err)
+	}
+	return &pentatope.ImageTile{
+		BlobPngMantissa: blobMantissa.Bytes(),
+		BlobPngExponent: blobExponent.Bytes(),
+	}
+}
+
 func combineFloat(mantissa, exponent uint8) float32 {
 	return float32((float64(mantissa)/256.0 + 1.0) * math.Pow(2, float64(exponent)-127))
+}
+
+func decomposeFloat(v float32) (mantissa, exponent uint8) {
+	if v <= 0 {
+		return 0, 0 // Approximate by the smallest normal number.
+	}
+	fract, exp := math.Frexp(float64(v))
+	fract *= 2
+	exp--
+	if fract < 1 || fract >= 2 {
+		log.Panicf("decomposeFloat failed for %f", v)
+	}
+	return saturateU8(int((fract - 1) * 256)), saturateU8(exp + 127)
+}
+
+func saturateU8(v int) uint8 {
+	if v > 255 {
+		return 255
+	} else if v < 0 {
+		return 0
+	} else {
+		return uint8(v)
+	}
 }
 
 func (hdrImage *HdrImage) GetSaturatedU8Png() []byte {
