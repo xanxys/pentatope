@@ -33,7 +33,7 @@ func NewGCEProvider(keyJson []byte, coreNeeded float64, duration float64) *GCEPr
 
 	provider.instanceNum, provider.corePerMachine = satisfyCoreNeed(int(coreNeeded))
 	provider.zone = "us-central1-b"
-	provider.estDuration = duration
+	provider.estDuration = duration * coreNeeded / float64(provider.instanceNum*provider.corePerMachine)
 
 	provider.projectId = "pentatope-955"
 	provider.runId = fmt.Sprintf("%04d", rand.Int()%10000)
@@ -42,6 +42,11 @@ func NewGCEProvider(keyJson []byte, coreNeeded float64, duration float64) *GCEPr
 
 // Return (#machine, #core)
 func satisfyCoreNeed(coreNeeded int) (int, int) {
+	coreQuota := 2000
+	if coreNeeded > coreQuota {
+		coreNeeded = coreQuota
+	}
+
 	coreChoices := []int{1, 2, 4, 8, 16, 32}
 	for _, numCore := range coreChoices {
 		if coreNeeded < numCore {
