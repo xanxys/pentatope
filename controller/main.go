@@ -324,7 +324,7 @@ func estimateTaskDifficulty(task *pentatope.RenderMovieTask) float64 {
 func createprovider(
 	debugFe *DebugFrontend,
 	coreNeeded float64, duration float64,
-	localFlag *bool, gceFlag *string) Provider {
+	localFlag *bool, gceFlag *string, fakeFlag *bool) Provider {
 
 	nProvider := 0
 	if *localFlag {
@@ -333,8 +333,11 @@ func createprovider(
 	if *gceFlag != "" {
 		nProvider++
 	}
+	if *fakeFlag {
+		nProvider++
+	}
 	if nProvider != 1 {
-		log.Println("You must one and only one provider.")
+		log.Println("You must specify one and only one provider.")
 		return nil
 	}
 
@@ -347,6 +350,8 @@ func createprovider(
 			return nil
 		}
 		return NewGCEProvider(gceKey, coreNeeded, duration)
+	} else if *fakeFlag {
+		return new(FakeProvider)
 	}
 	return nil
 }
@@ -360,6 +365,7 @@ func main() {
 	// Resource provider.
 	localFlag := flag.Bool("local", false, "Use this machine.")
 	gceFlag := flag.String("gce", "", "Use Google Compute Engine with a text file containing API key.")
+	fakeFlag := flag.Bool("fake", false, "Use internal fake provider that ignores input scene. Useful for testing controller.")
 	// I/O
 	input := flag.String("input", "", "Input .pb file containing an animation.")
 	outputMp4 := flag.String("output-mp4", "", "Encode the results as H264/mp4.")
@@ -372,7 +378,7 @@ func main() {
 	coreNeeded := difficulty / targetHour
 	log.Printf("Estimated: %.1f cores necessary for %.1f hour target\n", coreNeeded, targetHour)
 
-	provider := createprovider(debugFe, coreNeeded, targetHour, localFlag, gceFlag)
+	provider := createprovider(debugFe, coreNeeded, targetHour, localFlag, gceFlag, fakeFlag)
 	if provider == nil {
 		log.Println("You need at one usable provider.")
 		os.Exit(1)
