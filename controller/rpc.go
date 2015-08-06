@@ -55,14 +55,3 @@ func (server HttpRpc) DoRenderRequest(request *pentatope.RenderRequest) (*pentat
 func (server HttpRpc) GetId() string {
 	return server.url
 }
-
-type InProcessRpc struct {
-}
-
-func (rpc InProcessRpc) DoRenderRequest(request *pentatope.RenderRequest) (*pentatope.RenderResponse, error) {
-	return nil, nil
-}
-
-func (rpc InProcessRpc) GetId() string {
-	return "In-memory RPC"
-}
