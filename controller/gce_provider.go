@@ -62,7 +62,7 @@ func (provider *GCEProvider) SafeToString() string {
 		provider.getStandardMachineType(), provider.instanceNum)
 }
 
-func (provider *GCEProvider) Prepare() chan string {
+func (provider *GCEProvider) Prepare() chan Rpc {
 	service := provider.getService()
 
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + provider.projectId
@@ -142,7 +142,7 @@ func (provider *GCEProvider) Prepare() chan string {
 	// Wait for all instances in parallel.
 	// We can return immediately, because calling Discard() before instances become ready
 	// will be ok because instances are already in PENDING state.
-	urls := make(chan string, provider.instanceNum)
+	services := make(chan Rpc, provider.instanceNum)
 	for _, name := range provider.instanceNames {
 		go func(name string) {
 			for {
@@ -152,17 +152,17 @@ func (provider *GCEProvider) Prepare() chan string {
 					ip := resp.NetworkInterfaces[0].AccessConfigs[0].NatIP
 					url := fmt.Sprintf("http://%s:8000", ip)
 					BlockUntilAvailable(url, 5*time.Second)
-					urls <- url
+					services <- NewHttpRpc(url)
 					return
 				}
 				time.Sleep(5 * time.Second)
 			}
 		}(name)
 	}
-	return urls
+	return services
 }
 
-func (provider *GCEProvider) NotifyUseless(server string) {
+func (provider *GCEProvider) NotifyUseless(server Rpc) {
 }
 
 func (provider *GCEProvider) Discard() {

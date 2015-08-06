@@ -2,13 +2,11 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -41,11 +39,11 @@ type Provider interface {
 	// like secret keys.
 	SafeToString() string
 
-	// Return a channel where usable urls appear.
-	Prepare() chan string
+	// Return a channel where usable rpc endpoints appear.
+	Prepare() chan Rpc
 
 	// Notify useless server that should be killed.
-	NotifyUseless(string)
+	NotifyUseless(service Rpc)
 
 	Discard()
 	CalcBill() (string, float64)
@@ -73,29 +71,6 @@ type TaskShard struct {
 	frameConfig *pentatope.CameraConfig
 }
 
-// Return response when RPC is successful, otherwise return nil.
-// When the result is nil, it is guranteed that error is non-nil.
-func doRenderRequest(serverUrl string, request *pentatope.RenderRequest) (*pentatope.RenderResponse, error) {
-	requestRaw, err := proto.Marshal(request)
-	respHttp, err := http.Post(serverUrl,
-		"application/x-protobuf", bytes.NewReader(requestRaw))
-	if err != nil {
-		log.Println("Error when doing RPC", err)
-		return nil, err
-	}
-
-	respRaw, err := ioutil.ReadAll(respHttp.Body)
-	respHttp.Body.Close()
-
-	resp := &pentatope.RenderResponse{}
-	err = proto.Unmarshal(respRaw, resp)
-	if err != nil {
-		log.Println("Invalid proto received from worker", err)
-		return nil, err
-	}
-	return resp, nil
-}
-
 type WorkerCacheController struct {
 	sceneId uint64
 
@@ -110,28 +85,28 @@ func NewCacheController() *WorkerCacheController {
 	}
 }
 
-func (ctrl *WorkerCacheController) canUseCacheFor(serverUrl string) bool {
+func (ctrl *WorkerCacheController) canUseCacheFor(server Rpc) bool {
 	ctrl.mutex.Lock()
 	defer ctrl.mutex.Unlock()
 
-	return ctrl.cached[serverUrl]
+	return ctrl.cached[server.GetId()]
 }
 
-func (ctrl *WorkerCacheController) setCacheState(serverUrl string, canUseCache bool) {
+func (ctrl *WorkerCacheController) setCacheState(server Rpc, canUseCache bool) {
 	ctrl.mutex.Lock()
 	defer ctrl.mutex.Unlock()
 
-	ctrl.cached[serverUrl] = canUseCache
+	ctrl.cached[server.GetId()] = canUseCache
 }
 
 // Return nil when shard rendering failed.
 func renderShard(
 	cacheCtrl *WorkerCacheController,
 	wholeTask *pentatope.RenderMovieTask, shard *TaskShard,
-	serverUrl string, collector *FrameCollector) error {
+	server Rpc, collector *FrameCollector) error {
 
 	for {
-		log.Println("Rendering", shard.frameIndex, "in", serverUrl)
+		log.Println("Rendering", shard.frameIndex, "in", server.GetId())
 		req := &pentatope.RenderRequest{
 			Task: &pentatope.RenderTask{
 				SamplePerPixel: wholeTask.SamplePerPixel,
@@ -141,36 +116,36 @@ func renderShard(
 			SceneId: &cacheCtrl.sceneId,
 		}
 
-		canUseCache := cacheCtrl.canUseCacheFor(serverUrl)
+		canUseCache := cacheCtrl.canUseCacheFor(server)
 
 		if canUseCache {
 			log.Printf("Try using cache (id=%d)\n", cacheCtrl.sceneId)
 			req.Task.Scene = nil
 		}
 
-		resp, err := doRenderRequest(serverUrl, req)
+		resp, err := server.DoRenderRequest(req)
 		if err != nil {
 			return err
 		}
 
 		if *resp.Status == pentatope.RenderResponse_SUCCESS {
-			cacheCtrl.setCacheState(serverUrl, true)
+			cacheCtrl.setCacheState(server, true)
 
 			collector.AddFrameTile(shard.frameIndex, resp.OutputTile)
 			log.Println("Shard", shard, "complete")
 			return nil
 		} else if *resp.Status == pentatope.RenderResponse_SCENE_UNAVAILABLE {
-			cacheCtrl.setCacheState(serverUrl, false)
+			cacheCtrl.setCacheState(server, false)
 
 			if canUseCache {
 				log.Printf("Cache unavailable despite expectation; disabling cache")
 			} else {
 				log.Println("Worker incorrectly returning SCENE_UNAVAILABLE")
-				return fmt.Errorf("SCENE_UNAVAILABLE at server=%s", serverUrl)
+				return fmt.Errorf("SCENE_UNAVAILABLE at server=%s", server.GetId())
 			}
 		} else {
 			log.Println("Error in worker", resp.ErrorMessage)
-			return fmt.Errorf("Error at server=%s, err=%s", serverUrl, resp.ErrorMessage)
+			return fmt.Errorf("Error at server=%s, err=%s", server.GetId(), resp.ErrorMessage)
 		}
 	}
 }
@@ -206,15 +181,15 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 	cacheCtrl := NewCacheController()
 
 	log.Println("Preparing provider", provider.SafeToString())
-	cUrls := provider.Prepare()
+	cServices := provider.Prepare()
 	go func() {
-		servers := make(map[string]bool) // serverUrl -> isIdle
-		failures := make(map[string]int) // serverUrl -> failure count
+		servers := make(map[Rpc]bool) // server id -> isIdle
+		failures := make(map[Rpc]int) // server id -> failure count
 		for {
 			select {
 			case shard := <-cTask:
 				log.Println("Searching idle server")
-				idleServer := ""
+				var idleServer Rpc
 				for server, isIdle := range servers {
 					if isIdle {
 						idleServer = server
@@ -222,9 +197,9 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 					}
 				}
 
-				if idleServer != "" {
+				if idleServer != nil {
 					go func() {
-						log.Printf("R/R session for %s\n", idleServer)
+						log.Printf("R/R session for %s\n", idleServer.GetId())
 						servers[idleServer] = false
 						err := renderShard(cacheCtrl, task, shard, idleServer, collector)
 						if err == nil {
@@ -233,7 +208,7 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 							log.Println("Shard failed in server. Re-queueing the shard.")
 							failures[idleServer]++
 							if failures[idleServer] >= MAX_FAILURES {
-								log.Printf("Removing %s since its failure count is %d\n", idleServer, failures[idleServer])
+								log.Printf("Removing %s since its failure count is %d\n", idleServer.GetId(), failures[idleServer])
 								delete(servers, idleServer)
 								delete(failures, idleServer)
 							}
@@ -248,10 +223,10 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 						cTask <- shard
 					}()
 				}
-			case url := <-cUrls:
-				log.Printf("Got new server: %s\n", url)
-				servers[url] = true
-				failures[url] = 0
+			case service := <-cServices:
+				log.Printf("Got new server: %s\n", service.GetId())
+				servers[service] = true
+				failures[service] = 0
 			}
 		}
 	}()
