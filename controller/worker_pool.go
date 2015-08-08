@@ -118,10 +118,10 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 		for {
 			select {
 			case shard := <-cTask:
-				log.Println("Searching idle server")
 				var idleServer Rpc
 				for server, isIdle := range servers {
 					if isIdle {
+						log.Println("An idle server found")
 						idleServer = server
 						break
 					}
@@ -129,7 +129,6 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 
 				if idleServer != nil {
 					go func() {
-						log.Printf("R/R session for %s\n", idleServer.GetId())
 						servers[idleServer] = false
 						err := renderShard(cacheCtrl, task, shard, idleServer, collector)
 						if err == nil {
@@ -148,7 +147,7 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 					}()
 				} else {
 					// All servers are busy now.
-					time.Sleep(time.Second)
+					time.Sleep(time.Second / 10)
 					go func() {
 						cTask <- shard
 					}()
