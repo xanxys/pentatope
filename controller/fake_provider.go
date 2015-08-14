@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 )
 
@@ -10,16 +11,34 @@ import pentatope "./pentatope"
 
 // No-cache server that always returns red image.
 type FakeRpc struct {
+	rng        *rand.Rand
+	sceneCache map[uint64]*pentatope.RenderScene
+}
+
+func newFakeRpc() FakeRpc {
+	return FakeRpc{
+		rng:        rand.New(rand.NewSource(1)),
+		sceneCache: make(map[uint64]*pentatope.RenderScene),
+	}
 }
 
 func (rpc FakeRpc) DoRenderRequest(request *pentatope.RenderRequest) (*pentatope.RenderResponse, error) {
-	// If request is expecting cache, always return unavailable.
+	rpc.invalidateRandomCache()
+
 	if request.Task.Scene == nil && request.SceneId != nil {
-		resp := pentatope.RenderResponse{
-			Status: pentatope.RenderResponse_SCENE_UNAVAILABLE.Enum(),
+		_, exist := rpc.sceneCache[*request.SceneId]
+		if exist {
+			// no need to do anything special; we don't eve need scene!
+		} else {
+			return sceneUnavailable()
 		}
-		return &resp, nil
 	}
+
+	// Cache given scene if possible.
+	if request.Task.Scene != nil && request.SceneId != nil {
+		rpc.sceneCache[*request.SceneId] = request.Task.Scene
+	}
+
 	// Proceed as if scene was rendered
 	tile := EncodeImageTile(generateImage(
 		int(*request.Task.Camera.SizeX),
@@ -27,6 +46,28 @@ func (rpc FakeRpc) DoRenderRequest(request *pentatope.RenderRequest) (*pentatope
 	resp := pentatope.RenderResponse{
 		Status:     pentatope.RenderResponse_SUCCESS.Enum(),
 		OutputTile: tile,
+	}
+	return &resp, nil
+}
+
+// Maybe randomly invalidates random scene cache to simulate realistic memory.
+func (rpc FakeRpc) invalidateRandomCache() {
+	const keepProb = 0.25
+	newSceneCache := make(map[uint64]*pentatope.RenderScene)
+
+	for id, scene := range rpc.sceneCache {
+		if rpc.rng.Float32() > keepProb {
+			newSceneCache[id] = scene
+		} else {
+			log.Printf("FakeRpc: invalidating cache(%d)", id)
+		}
+	}
+	rpc.sceneCache = newSceneCache
+}
+
+func sceneUnavailable() (*pentatope.RenderResponse, error) {
+	resp := pentatope.RenderResponse{
+		Status: pentatope.RenderResponse_SCENE_UNAVAILABLE.Enum(),
 	}
 	return &resp, nil
 }
@@ -63,7 +104,7 @@ func (provider *FakeProvider) Prepare() chan Rpc {
 	log.Print("FakeProvider.Prepare")
 	time.Sleep(time.Second) // Block for arbitrary short amount of time.
 	urls := make(chan Rpc, 1)
-	urls <- FakeRpc{}
+	urls <- newFakeRpc()
 	return urls
 }
 

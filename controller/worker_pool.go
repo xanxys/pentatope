@@ -113,37 +113,39 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 	log.Println("Preparing provider", provider.SafeToString())
 	cServices := provider.Prepare()
 	go func() {
-		servers := make(map[Rpc]bool) // server id -> isIdle
-		failures := make(map[Rpc]int) // server id -> failure count
+		refs := make(map[string]Rpc)     // server id -> Rpc
+		servers := make(map[string]bool) // server id -> isIdle
+		failures := make(map[string]int) // server id -> failure count
 		for {
 			select {
 			case shard := <-cTask:
-				var idleServer Rpc
-				for server, isIdle := range servers {
+				idleId := ""
+				for id, isIdle := range servers {
 					if isIdle {
 						log.Println("An idle server found")
-						idleServer = server
+						idleId = id
 						break
 					}
 				}
 
-				if idleServer != nil {
+				if idleId != "" {
 					go func() {
-						servers[idleServer] = false
-						err := renderShard(cacheCtrl, task, shard, idleServer, collector)
+						servers[idleId] = false
+						err := renderShard(cacheCtrl, task, shard, refs[idleId], collector)
 						if err == nil {
 							cResult <- true
 						} else {
 							log.Println("Shard failed in server. Re-queueing the shard.")
-							failures[idleServer]++
-							if failures[idleServer] >= MAX_FAILURES {
-								log.Printf("Removing %s since its failure count is %d\n", idleServer.GetId(), failures[idleServer])
-								delete(servers, idleServer)
-								delete(failures, idleServer)
+							failures[idleId]++
+							if failures[idleId] >= MAX_FAILURES {
+								log.Printf("Removing %s since its failure count is %d\n", idleId, failures[idleId])
+								delete(refs, idleId)
+								delete(servers, idleId)
+								delete(failures, idleId)
 							}
 							cTask <- shard
 						}
-						servers[idleServer] = true
+						servers[idleId] = true
 					}()
 				} else {
 					// All servers are busy now.
@@ -154,8 +156,9 @@ func NewWorkerPool(provider Provider, task *pentatope.RenderMovieTask, collector
 				}
 			case service := <-cServices:
 				log.Printf("Got new server: %s\n", service.GetId())
-				servers[service] = true
-				failures[service] = 0
+				refs[service.GetId()] = service
+				servers[service.GetId()] = true
+				failures[service.GetId()] = 0
 			}
 		}
 	}()
