@@ -1,7 +1,6 @@
 # Pentatope
 Physically based renderer for 4-dimensional space.
 
-
 This is *not* based on 4-dimensional version of Maxwell equation.
 Rather, this is a natural extension of geometric optics
 (and light transport equation) to 4-dimensional space.
@@ -10,6 +9,7 @@ Rather, this is a natural extension of geometric optics
 Implementation details, especially class hierarchy is designed under
 heavy influence of [pbrt](http://www.pbrt.org/).
 
+[![Cornell Tesseract](http://img.youtube.com/vi/1hU7nIOKnDw/0.jpg)](https://www.youtube.com/watch?v=1hU7nIOKnDw)
 
 ## Goals
 * low-poly artistic experiment with 4-d space
